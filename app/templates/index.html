@@ -10,7 +10,7 @@
   <main class="wrap">
     <header>
       <p class="brand">Equity Research Agent</p>
-      <p class="sub">Local · Llama via Ollama · same Wi‑Fi</p>
+      <p class="sub">Local · plan → approve → tools · Llama via Ollama</p>
     </header>
 
     {% if error %}
@@ -18,7 +18,7 @@
     {% endif %}
 
     <p class="status {% if ollama_up %}ok{% else %}warn{% endif %}">
-      {% if ollama_up %}Ollama up · model {{ model }}{% else %}Ollama offline · rule-based NLP fallback{% endif %}
+      {% if ollama_up %}Ollama up · model {{ model }}{% else %}Ollama offline · template plan + rule-based NLP{% endif %}
     </p>
 
     <form class="card-form" method="post" action="/research">
@@ -26,11 +26,20 @@
       <input id="ticker" name="ticker" type="text" inputmode="latin" autocomplete="off"
              placeholder="AAPL" required maxlength="12" />
 
+      <label for="goal">Research goal (optional)</label>
+      <input id="goal" name="goal" type="text" maxlength="240"
+             placeholder="e.g. covered-call income + key 10-K risks" />
+
       <label for="mode">Mode</label>
       <select id="mode" name="mode">
-        <option value="fast">Fast — fundamentals + options</option>
-        <option value="deep" selected>Deep — + SEC 10-K + local LLM</option>
+        <option value="fast">Fast — fundamentals + options (runs immediately)</option>
+        <option value="deep" selected>Deep — plan, approve, then SEC + LLM</option>
       </select>
+
+      <label class="check">
+        <input type="checkbox" name="collaborative" value="on" checked />
+        Review plan before running (deep mode)
+      </label>
 
       {% if pin_required %}
       <label for="pin">PIN</label>

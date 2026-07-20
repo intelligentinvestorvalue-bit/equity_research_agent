@@ -28,7 +28,10 @@
     const detailEl = document.getElementById("detail");
     const fillEl = document.getElementById("fill");
 
-    const stageWidth = { queued: "8%", starting: "12%", quant: "35%", sec: "60%", nlp: "85%", done: "100%", error: "100%" };
+    const stageWidth = {
+      queued: "8%", starting: "12%", plan: "18%", planning: "20%",
+      quant: "40%", sec: "60%", nlp: "85%", done: "100%", error: "100%"
+    };
 
     async function tick() {
       try {

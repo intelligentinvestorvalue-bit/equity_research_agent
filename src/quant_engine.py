@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import pandas as pd
@@ -12,22 +13,110 @@ logger = logging.getLogger(__name__)
 
 
 def _safe_get(series_or_df: Any, *keys: str) -> float | None:
-    """Pull first available numeric field from a yfinance statement frame."""
-    if series_or_df is None:
+    """Pull first available numeric field from a yfinance statement frame (latest col)."""
+    history = _row_history(series_or_df, *keys, max_periods=1)
+    return history[0]["value"] if history else None
+
+
+def _to_float(val: Any) -> float | None:
+    if val is None or (isinstance(val, float) and math.isnan(val)):
         return None
-    frame = series_or_df
-    if isinstance(frame, pd.DataFrame):
-        if frame.empty:
+    try:
+        if pd.isna(val):
             return None
-        col = frame.columns[0]
-        for key in keys:
-            if key in frame.index:
-                val = frame.loc[key, col]
-                try:
-                    return float(val)
-                except (TypeError, ValueError):
-                    return None
-    return None
+    except (TypeError, ValueError):
+        pass
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_history(series_or_df: Any, *keys: str, max_periods: int = 5) -> list[dict[str, Any]]:
+    """
+    Extract a named row across statement columns (newest → oldest).
+    Returns [{period, value}, ...] with period as YYYY-MM-DD string when possible.
+    """
+    if series_or_df is None or not isinstance(series_or_df, pd.DataFrame) or series_or_df.empty:
+        return []
+    row_key = None
+    for key in keys:
+        if key in series_or_df.index:
+            row_key = key
+            break
+    if row_key is None:
+        return []
+    out: list[dict[str, Any]] = []
+    for col in list(series_or_df.columns)[:max_periods]:
+        val = _to_float(series_or_df.loc[row_key, col])
+        if val is None:
+            continue
+        period = col.strftime("%Y-%m-%d") if hasattr(col, "strftime") else str(col)[:10]
+        out.append({"period": period, "value": val})
+    return out
+
+
+def _fcf_history(cashflow: Any, max_periods: int = 5) -> list[dict[str, Any]]:
+    """Free cash flow ≈ operating CF − |capex| per period."""
+    if cashflow is None or not isinstance(cashflow, pd.DataFrame) or cashflow.empty:
+        return []
+    ocf_key = next(
+        (k for k in ("Operating Cash Flow", "Total Cash From Operating Activities") if k in cashflow.index),
+        None,
+    )
+    capex_key = next(
+        (k for k in ("Capital Expenditure", "Capital Expenditures") if k in cashflow.index),
+        None,
+    )
+    if ocf_key is None:
+        return []
+    out: list[dict[str, Any]] = []
+    for col in list(cashflow.columns)[:max_periods]:
+        ocf = _to_float(cashflow.loc[ocf_key, col])
+        if ocf is None:
+            continue
+        capex = _to_float(cashflow.loc[capex_key, col]) if capex_key else 0.0
+        period = col.strftime("%Y-%m-%d") if hasattr(col, "strftime") else str(col)[:10]
+        out.append({"period": period, "value": ocf - abs(capex or 0.0)})
+    return out
+
+
+def _yoy_growth(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """YoY growth between consecutive periods (newest first)."""
+    growth: list[dict[str, Any]] = []
+    for i in range(len(history) - 1):
+        newer, older = history[i], history[i + 1]
+        base = older["value"]
+        if base in (None, 0):
+            rate = None
+        else:
+            rate = (newer["value"] - base) / abs(base)
+        growth.append(
+            {
+                "from_period": older["period"],
+                "to_period": newer["period"],
+                "rate": rate,
+            }
+        )
+    return growth
+
+
+def _cagr(history: list[dict[str, Any]]) -> float | None:
+    """CAGR from oldest to newest point in history (newest-first list)."""
+    if len(history) < 2:
+        return None
+    newest = history[0]["value"]
+    oldest = history[-1]["value"]
+    years = len(history) - 1
+    if oldest in (None, 0) or newest is None or years <= 0:
+        return None
+    if oldest < 0 or newest < 0:
+        # CAGR not meaningful across sign changes / negatives
+        return None
+    try:
+        return (newest / oldest) ** (1.0 / years) - 1.0
+    except (ZeroDivisionError, ValueError, OverflowError):
+        return None
 
 
 def compute_roic(ebit: float | None, total_debt: float | None, equity: float | None, cash: float | None) -> float | None:
@@ -53,7 +142,7 @@ def compute_debt_to_equity(total_debt: float | None, equity: float | None) -> fl
 
 
 def fetch_fundamentals(ticker: str) -> dict[str, Any]:
-    """Pull ~4 years of statements and derived ratios via yfinance."""
+    """Pull statements + richer metrics: revenue, FCF history, shares, growth rates."""
     t = yf.Ticker(ticker)
     info = t.info or {}
     income = t.financials
@@ -61,23 +150,68 @@ def fetch_fundamentals(ticker: str) -> dict[str, Any]:
     cashflow = t.cashflow
 
     ebit = _safe_get(income, "EBIT", "Operating Income")
+    operating_income = _safe_get(income, "Operating Income", "EBIT")
     total_debt = _safe_get(balance, "Total Debt", "Long Term Debt")
     equity = _safe_get(balance, "Stockholders Equity", "Total Stockholder Equity", "Common Stock Equity")
     cash = _safe_get(balance, "Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments")
     operating_cf = _safe_get(cashflow, "Operating Cash Flow", "Total Cash From Operating Activities")
     capex = _safe_get(cashflow, "Capital Expenditure", "Capital Expenditures")
     market_cap = info.get("marketCap")
+    price = info.get("currentPrice") or info.get("regularMarketPrice")
+
+    revenue_hist = _row_history(income, "Total Revenue", "Operating Revenue", max_periods=5)
+    fcf_hist = _fcf_history(cashflow, max_periods=5)
+    op_inc_hist = _row_history(income, "Operating Income", "EBIT", max_periods=5)
+    net_inc_hist = _row_history(income, "Net Income", "Net Income Common Stockholders", max_periods=5)
+
+    revenue = revenue_hist[0]["value"] if revenue_hist else None
+    fcf = fcf_hist[0]["value"] if fcf_hist else (
+        (operating_cf - abs(capex or 0.0)) if operating_cf is not None else None
+    )
+    shares = (
+        _to_float(info.get("sharesOutstanding"))
+        or _to_float(info.get("impliedSharesOutstanding"))
+        or _to_float(info.get("floatShares"))
+    )
+    operating_margin = None
+    if operating_income is not None and revenue not in (None, 0):
+        operating_margin = operating_income / revenue
+
+    revenue_yoy = _yoy_growth(revenue_hist)
+    fcf_yoy = _yoy_growth(fcf_hist)
 
     profile = {
         "ticker": ticker.upper(),
         "company_name": info.get("shortName") or info.get("longName"),
         "currency": info.get("currency"),
         "market_cap": market_cap,
-        "price": info.get("currentPrice") or info.get("regularMarketPrice"),
+        "price": price,
+        "shares_outstanding": shares,
+        "revenue": revenue,
+        "free_cash_flow": fcf,
+        "operating_income": operating_income,
+        "operating_margin": operating_margin,
+        "history": {
+            "revenue": revenue_hist,
+            "free_cash_flow": fcf_hist,
+            "operating_income": op_inc_hist,
+            "net_income": net_inc_hist,
+        },
+        "growth": {
+            "revenue_cagr": _cagr(revenue_hist),
+            "fcf_cagr": _cagr(fcf_hist),
+            "revenue_yoy": revenue_yoy,
+            "fcf_yoy": fcf_yoy,
+            "latest_revenue_yoy": revenue_yoy[0]["rate"] if revenue_yoy else None,
+            "latest_fcf_yoy": fcf_yoy[0]["rate"] if fcf_yoy else None,
+        },
         "ratios": {
             "roic": compute_roic(ebit, total_debt, equity, cash),
             "fcf_yield": compute_fcf_yield(operating_cf, capex, market_cap),
             "debt_to_equity": compute_debt_to_equity(total_debt, equity),
+            "operating_margin": operating_margin,
+            "fcf_per_share": (fcf / shares) if fcf is not None and shares not in (None, 0) else None,
+            "revenue_per_share": (revenue / shares) if revenue is not None and shares not in (None, 0) else None,
         },
         "raw_inputs": {
             "ebit": ebit,
@@ -191,3 +325,83 @@ def run_quant(ticker: str) -> dict[str, Any]:
         options = {"ticker": ticker.upper(), "error": str(exc), "candidates": []}
 
     return {"fundamentals": fundamentals, "options": options}
+
+
+def _fmt_money(val: float | None) -> str:
+    if val is None:
+        return "—"
+    abs_v = abs(val)
+    sign = "-" if val < 0 else ""
+    if abs_v >= 1e9:
+        return f"{sign}${abs_v / 1e9:.2f}B"
+    if abs_v >= 1e6:
+        return f"{sign}${abs_v / 1e6:.2f}M"
+    if abs_v >= 1e3:
+        return f"{sign}${abs_v / 1e3:.2f}K"
+    return f"{sign}${abs_v:.2f}"
+
+
+def _fmt_pct(val: float | None) -> str:
+    if val is None:
+        return "—"
+    return f"{val * 100:.1f}%"
+
+
+def _fmt_shares(val: float | None) -> str:
+    if val is None:
+        return "—"
+    if val >= 1e9:
+        return f"{val / 1e9:.2f}B"
+    if val >= 1e6:
+        return f"{val / 1e6:.2f}M"
+    return f"{val:,.0f}"
+
+
+def format_fundamentals_markdown(fund: dict[str, Any], heading: str = "## Fundamentals") -> str:
+    """Render richer fundamentals block for reports."""
+    if fund.get("error"):
+        return f"{heading}\n\n**Fundamentals error:** {fund['error']}\n"
+
+    ratios = fund.get("ratios") or {}
+    growth = fund.get("growth") or {}
+    history = fund.get("history") or {}
+    lines = [
+        heading,
+        f"- Company: {fund.get('company_name')}",
+        f"- Price: {fund.get('price')}",
+        f"- Market cap: {_fmt_money(_to_float(fund.get('market_cap')))}",
+        f"- Shares outstanding: {_fmt_shares(_to_float(fund.get('shares_outstanding')))}",
+        f"- Revenue (latest): {_fmt_money(_to_float(fund.get('revenue')))}",
+        f"- Free cash flow (latest): {_fmt_money(_to_float(fund.get('free_cash_flow')))}",
+        f"- Operating income: {_fmt_money(_to_float(fund.get('operating_income')))}",
+        f"- Operating margin: {_fmt_pct(_to_float(fund.get('operating_margin')))}",
+        f"- ROIC: {_fmt_pct(_to_float(ratios.get('roic')))}",
+        f"- FCF yield: {_fmt_pct(_to_float(ratios.get('fcf_yield')))}",
+        f"- Debt / Equity: {ratios.get('debt_to_equity') if ratios.get('debt_to_equity') is not None else '—'}",
+        f"- FCF / share: {_fmt_money(_to_float(ratios.get('fcf_per_share')))}",
+        f"- Revenue / share: {_fmt_money(_to_float(ratios.get('revenue_per_share')))}",
+        "",
+        "### Growth",
+        f"- Revenue CAGR: {_fmt_pct(_to_float(growth.get('revenue_cagr')))}",
+        f"- FCF CAGR: {_fmt_pct(_to_float(growth.get('fcf_cagr')))}",
+        f"- Latest revenue YoY: {_fmt_pct(_to_float(growth.get('latest_revenue_yoy')))}",
+        f"- Latest FCF YoY: {_fmt_pct(_to_float(growth.get('latest_fcf_yoy')))}",
+        "",
+    ]
+
+    rev_hist = history.get("revenue") or []
+    if rev_hist:
+        lines.append("### Revenue history")
+        for row in rev_hist:
+            lines.append(f"- {row.get('period')}: {_fmt_money(_to_float(row.get('value')))}")
+        lines.append("")
+
+    fcf_hist = history.get("free_cash_flow") or []
+    if fcf_hist:
+        lines.append("### Free cash flow history")
+        for row in fcf_hist:
+            lines.append(f"- {row.get('period')}: {_fmt_money(_to_float(row.get('value')))}")
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+

@@ -14,11 +14,14 @@ class Job:
     id: str
     ticker: str
     mode: str
-    status: str = "queued"  # queued | running | completed | failed
+    goal: str = ""
+    collaborative: bool = True
+    status: str = "queued"  # queued | planning | awaiting_approval | running | completed | failed
     stage: str = "queued"
     message: str = ""
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     finished_at: str | None = None
+    plan: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     error: str | None = None
 
@@ -28,8 +31,20 @@ class JobStore:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
-    def create(self, ticker: str, mode: str) -> Job:
-        job = Job(id=str(uuid.uuid4()), ticker=ticker.upper(), mode=mode)
+    def create(
+        self,
+        ticker: str,
+        mode: str,
+        goal: str = "",
+        collaborative: bool = True,
+    ) -> Job:
+        job = Job(
+            id=str(uuid.uuid4()),
+            ticker=ticker.upper(),
+            mode=mode,
+            goal=goal or "",
+            collaborative=collaborative,
+        )
         with self._lock:
             self._jobs[job.id] = job
         return job

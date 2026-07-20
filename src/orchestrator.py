@@ -10,6 +10,9 @@ from typing import Any, Callable
 
 from src.config import OUTPUT_DIR
 from src import nlp_engine, quant_engine, sec_engine
+from src.plan_runner import run_planned_research
+from src.plan_schema import ResearchPlan
+from src.planner import generate_plan
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +31,17 @@ def run_research(
     ticker: str,
     mode: str = "deep",
     progress: ProgressCb | None = None,
+    goal: str = "",
+    *,
+    use_plan: bool = True,
 ) -> dict[str, Any]:
     """
     mode:
       - fast: quant only
       - deep / comprehensive: quant + SEC + NLP
+
+    By default builds a plan and executes it via tools (Phases 1–2).
+    Set use_plan=False for the legacy linear pipeline.
     """
     progress = progress or _noop_progress
     ticker = ticker.upper().strip()
@@ -41,6 +50,11 @@ def run_research(
         mode = "deep"
     if mode not in {"fast", "deep"}:
         raise ValueError(f"Unknown mode: {mode}")
+
+    if use_plan:
+        progress("plan", "Generating research plan")
+        plan = generate_plan(ticker, mode=mode, goal=goal)
+        return run_planned_research(plan, progress=progress)
 
     started = datetime.now(timezone.utc).isoformat()
     progress("quant", f"Fetching fundamentals/options for {ticker}")
@@ -105,22 +119,27 @@ def run_research(
     return result
 
 
+def run_with_plan(
+    plan: ResearchPlan | dict[str, Any],
+    progress: ProgressCb | None = None,
+) -> dict[str, Any]:
+    """Execute an already-approved plan."""
+    if isinstance(plan, dict):
+        plan = ResearchPlan.model_validate(plan)
+    return run_planned_research(plan, progress=progress)
+
+
 def _format_fast_report(ticker: str, quant: dict[str, Any]) -> str:
+    from src.quant_engine import format_fundamentals_markdown
+
     fund = quant.get("fundamentals") or {}
-    ratios = fund.get("ratios") or {}
     opts = quant.get("options") or {}
     lines = [
         f"# {ticker} — Fast Research Report",
         "",
         "> Not investment advice. Local research draft only.",
         "",
-        "## Fundamentals",
-        f"- Company: {fund.get('company_name')}",
-        f"- Price: {fund.get('price')}",
-        f"- Market cap: {fund.get('market_cap')}",
-        f"- ROIC: {ratios.get('roic')}",
-        f"- FCF yield: {ratios.get('fcf_yield')}",
-        f"- Debt / Equity: {ratios.get('debt_to_equity')}",
+        format_fundamentals_markdown(fund).rstrip(),
         "",
         "## Put opportunities (heuristic)",
         f"- Expiration: {opts.get('expiration')} (DTE {opts.get('dte')})",
@@ -134,8 +153,6 @@ def _format_fast_report(ticker: str, quant: dict[str, Any]) -> str:
         )
     if opts.get("note"):
         lines += ["", f"_Note: {opts.get('note')}_"]
-    if fund.get("error"):
-        lines += ["", f"**Fundamentals error:** {fund['error']}"]
     if opts.get("error"):
         lines += ["", f"**Options error:** {opts['error']}"]
     return "\n".join(lines) + "\n"

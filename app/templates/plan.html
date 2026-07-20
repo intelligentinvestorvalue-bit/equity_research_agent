@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ ticker }} plan</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="wrap wide">
+    <header>
+      <p class="brand">{{ ticker or "…" }} research plan</p>
+      <p class="sub">Mode: {{ mode }} · Job {{ job_id[:8] }}…</p>
+    </header>
+
+    {% if error %}
+    <p class="banner error">{{ error }}</p>
+    {% endif %}
+
+    <div id="waiting" class="panel" {% if status == 'awaiting_approval' %}hidden{% endif %}>
+      <p id="state" class="status">{{ status }} — drafting plan…</p>
+      <p class="fine">You’ll review sections before any SEC or LLM work starts.</p>
+      <div class="bar"><div id="fill" style="width:25%"></div></div>
+    </div>
+
+    <form id="plan-form" class="card-form plan-form" method="post" action="/jobs/{{ job_id }}/approve"
+          {% if status != 'awaiting_approval' %}hidden{% endif %}>
+      <label for="goal">Goal</label>
+      <input id="goal" name="goal" type="text" value="{{ goal }}" maxlength="240" />
+
+      <div id="sections"></div>
+
+      {% if pin_required %}
+      <label for="pin">PIN</label>
+      <input id="pin" name="pin" type="password" inputmode="numeric" />
+      {% endif %}
+
+      <button type="submit">Approve &amp; run</button>
+      <p class="fine">Uncheck a section to skip it. Notes steer how tools are interpreted in the report.</p>
+    </form>
+
+    <p><a class="link" href="/">← Cancel / new</a></p>
+  </main>
+
+  <script>
+    const jobId = {{ job_id|tojson }};
+    const waiting = document.getElementById("waiting");
+    const form = document.getElementById("plan-form");
+    const sectionsEl = document.getElementById("sections");
+    const stateEl = document.getElementById("state");
+    const goalEl = document.getElementById("goal");
+    const fillEl = document.getElementById("fill");
+    let rendered = false;
+
+    function renderPlan(plan) {
+      if (rendered) return;
+      rendered = true;
+      if (plan.goal) goalEl.value = plan.goal;
+      sectionsEl.innerHTML = "";
+      (plan.sections || []).forEach((sec) => {
+        const block = document.createElement("div");
+        block.className = "plan-section";
+        block.innerHTML = `
+          <label class="check">
+            <input type="checkbox" name="enabled_${sec.id}" ${sec.enabled ? "checked" : ""} />
+            <strong>${sec.title}</strong>
+            <span class="muted">(${(sec.tools || []).join(", ")})</span>
+          </label>
+          <label for="notes_${sec.id}">Notes</label>
+          <input id="notes_${sec.id}" name="notes_${sec.id}" type="text"
+                 value="${(sec.notes || "").replace(/"/g, "&quot;")}" maxlength="400" />
+        `;
+        sectionsEl.appendChild(block);
+      });
+      waiting.hidden = true;
+      form.hidden = false;
+    }
+
+    async function tick() {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        const data = await res.json();
+        stateEl.textContent = `${data.status} · ${data.stage || ""}`;
+        if (data.status === "failed") {
+          stateEl.className = "status warn";
+          stateEl.textContent = data.error || data.message || "Failed";
+          return;
+        }
+        if (data.status === "running" || data.status === "completed") {
+          window.location.href = data.status === "completed"
+            ? `/jobs/${jobId}/report`
+            : `/jobs/${jobId}`;
+          return;
+        }
+        if (data.status === "awaiting_approval" && data.has_plan) {
+          fillEl.style.width = "100%";
+          const planRes = await fetch(`/api/jobs/${jobId}/plan`);
+          const plan = await planRes.json();
+          renderPlan(plan);
+          return;
+        }
+        fillEl.style.width = data.status === "planning" ? "55%" : "25%";
+      } catch (e) {
+        stateEl.textContent = "Waiting for server…";
+      }
+      setTimeout(tick, 1200);
+    }
+    tick();
+  </script>
+</body>
+</html>

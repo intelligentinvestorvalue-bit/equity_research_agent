@@ -17,7 +17,13 @@ def main(argv: list[str] | None = None) -> int:
         "--mode",
         default="fast",
         choices=["fast", "deep", "comprehensive"],
-        help="fast=quant only; deep/comprehensive=quant+SEC+LLM",
+        help="fast=quant only; deep/comprehensive=plan+tools (SEC+LLM)",
+    )
+    parser.add_argument("--goal", default="", help="Optional research goal for the planner")
+    parser.add_argument(
+        "--legacy",
+        action="store_true",
+        help="Use linear pipeline instead of plan-driven tools",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -30,15 +36,26 @@ def main(argv: list[str] | None = None) -> int:
     def progress(stage: str, message: str) -> None:
         print(f"[{stage}] {message}", flush=True)
 
-    result = run_research(args.ticker, args.mode, progress=progress)
+    result = run_research(
+        args.ticker,
+        args.mode,
+        progress=progress,
+        goal=args.goal,
+        use_plan=not args.legacy,
+    )
     fund = (result.get("quant") or {}).get("fundamentals") or {}
     ratios = fund.get("ratios") or {}
     rows = [
         ["Company", fund.get("company_name")],
         ["Price", fund.get("price")],
+        ["Revenue", fund.get("revenue")],
+        ["FCF", fund.get("free_cash_flow")],
+        ["Shares", fund.get("shares_outstanding")],
+        ["Rev CAGR", (fund.get("growth") or {}).get("revenue_cagr")],
         ["ROIC", ratios.get("roic")],
         ["FCF yield", ratios.get("fcf_yield")],
         ["D/E", ratios.get("debt_to_equity")],
+        ["Evidence", len(result.get("evidence") or [])],
         ["Report", result.get("report_path")],
         ["Financials JSON", result.get("financials_path")],
     ]
