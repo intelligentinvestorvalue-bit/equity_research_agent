@@ -24,11 +24,13 @@ class ToolContext:
         plan_assumptions: dict[str, Any] | None = None,
         plan_goal: str = "",
         plan_queries: list[str] | None = None,
+        plan_multiples: dict[str, Any] | None = None,
     ) -> None:
         self.ticker = ticker.upper()
         self.evidence = evidence
         self.progress = progress
         self.plan_assumptions = plan_assumptions
+        self.plan_multiples = plan_multiples
         self.plan_goal = plan_goal or ""
         self.plan_queries = list(plan_queries or [])
         self.fundamentals: dict[str, Any] | None = None
@@ -37,6 +39,12 @@ class ToolContext:
         self.nlp_1a: dict[str, Any] | None = None
         self.nlp_7: dict[str, Any] | None = None
         self.valuation: dict[str, Any] | None = None
+        self.multiples: dict[str, Any] | None = None
+        self.peers: dict[str, Any] | None = None
+        self.earnings: dict[str, Any] | None = None
+        self.filings_extra: dict[str, Any] | None = None
+        self.drivers: dict[str, Any] | None = None
+        self.memo: dict[str, Any] | None = None
         self.web: dict[str, Any] | None = None
         self.web_summary: dict[str, Any] | None = None
         self.web_reports: list[dict[str, Any]] = []
@@ -206,6 +214,148 @@ def tool_run_dcf(ctx: ToolContext) -> dict[str, Any]:
     return result
 
 
+def tool_run_ev_ebitda(ctx: ToolContext) -> dict[str, Any]:
+    from src.multiples import format_multiples_markdown, merge_multiples, run_ev_ebitda
+
+    if ctx.fundamentals is None:
+        tool_get_fundamentals(ctx)
+    ctx.progress("valuation", f"Running EV/EBITDA scenarios for {ctx.ticker}")
+    fund = ctx.fundamentals or {}
+    assumptions = merge_multiples(fund, ctx.plan_multiples)
+    result = run_ev_ebitda(fund, assumptions)
+    result["report_markdown"] = format_multiples_markdown(result)
+    ctx.multiples = result
+    if not result.get("ok"):
+        ctx.errors.append("ev_ebitda: " + "; ".join(result.get("errors") or ["failed"]))
+    base = (result.get("scenarios") or {}).get("base") or {}
+    ctx.evidence.add(
+        source="multiples",
+        title=f"{ctx.ticker} EV/EBITDA valuation",
+        summary=f"Base implied price={base.get('share_price')}, multiple={base.get('multiple')}",
+        meta={"ok": result.get("ok"), "base_share_price": base.get("share_price")},
+    )
+    return result
+
+
+def tool_get_peer_comps(ctx: ToolContext) -> dict[str, Any]:
+    from src.peers import fetch_peer_comps, format_peer_comps_markdown
+
+    if ctx.fundamentals is None:
+        tool_get_fundamentals(ctx)
+    ctx.progress("peers", f"Building peer comps for {ctx.ticker}")
+    try:
+        comps = fetch_peer_comps(ctx.ticker, fund=ctx.fundamentals)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("peers failed")
+        comps = {"ticker": ctx.ticker, "rows": [], "peers": [], "ok": False, "notes": [str(exc)]}
+        ctx.errors.append(f"peers: {exc}")
+    # Drop heavy histories from ctx persistence path — keep for charts via attribute
+    hist = comps.pop("histories", {})
+    comps["report_markdown"] = format_peer_comps_markdown(comps)
+    comps["_histories"] = hist
+    ctx.peers = comps
+    ctx.evidence.add(
+        source="peers",
+        title=f"{ctx.ticker} peer comps",
+        summary=f"Peers: {', '.join(comps.get('peers') or [])}; rows={len(comps.get('rows') or [])}",
+        meta={"peers": comps.get("peers")},
+    )
+    return comps
+
+
+def tool_get_earnings(ctx: ToolContext) -> dict[str, Any]:
+    from src.quant_engine import fetch_earnings_history, format_earnings_markdown
+
+    ctx.progress("earnings", f"Fetching earnings history for {ctx.ticker}")
+    try:
+        earnings = fetch_earnings_history(ctx.ticker)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("earnings failed")
+        earnings = {"ticker": ctx.ticker, "rows": [], "ok": False, "notes": [str(exc)]}
+        ctx.errors.append(f"earnings: {exc}")
+    earnings["report_markdown"] = format_earnings_markdown(earnings)
+    ctx.earnings = earnings
+    ctx.evidence.add(
+        source="earnings",
+        title=f"{ctx.ticker} earnings history",
+        summary=f"rows={len(earnings.get('rows') or [])}; next={earnings.get('next_earnings')}",
+        meta={"ok": earnings.get("ok")},
+    )
+    return earnings
+
+
+def tool_fetch_recent_filings(ctx: ToolContext) -> dict[str, Any]:
+    ctx.progress("sec", f"Listing recent 10-Q/8-K for {ctx.ticker}")
+    try:
+        filings = sec_engine.fetch_recent_filings(ctx.ticker)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("recent filings failed")
+        filings = {"ticker": ctx.ticker, "recent": [], "ok": False, "error": str(exc)}
+        ctx.errors.append(f"recent_filings: {exc}")
+    filings["report_markdown"] = sec_engine.format_recent_filings_markdown(filings)
+    ctx.filings_extra = filings
+    for f in (filings.get("recent") or [])[:8]:
+        ctx.evidence.add(
+            source="sec",
+            title=f"{ctx.ticker} {f.get('form')} {f.get('filing_date')}",
+            summary=f.get("description") or "",
+            url=f.get("url"),
+            meta={"form": f.get("form"), "accession": f.get("accession")},
+        )
+    return filings
+
+
+def tool_analyze_drivers(ctx: ToolContext) -> dict[str, Any]:
+    from src.drivers import analyze_drivers, format_drivers_markdown
+
+    ctx.progress("drivers", f"Computing driver correlations for {ctx.ticker}")
+    try:
+        result = analyze_drivers(ctx.ticker)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("drivers failed")
+        result = {"ticker": ctx.ticker, "ok": False, "drivers": [], "notes": [str(exc)]}
+        ctx.errors.append(f"drivers: {exc}")
+    result["report_markdown"] = format_drivers_markdown(result)
+    ctx.drivers = result
+    ctx.evidence.add(
+        source="drivers",
+        title=f"{ctx.ticker} driver analysis",
+        summary=f"ok={result.get('ok')}; drivers={len(result.get('drivers') or [])}",
+        meta={"ok": result.get("ok")},
+    )
+    return result
+
+
+def tool_draft_memo_sections(ctx: ToolContext) -> dict[str, Any]:
+    from src.memo_engine import draft_memo_sections
+
+    # Ensure inputs that memo benefits from
+    if ctx.fundamentals is None:
+        tool_get_fundamentals(ctx)
+    ctx.progress("memo", f"Drafting memo thesis sections for {ctx.ticker}")
+    result = draft_memo_sections(
+        ctx.ticker,
+        fund=ctx.fundamentals,
+        valuation=ctx.valuation,
+        multiples=ctx.multiples,
+        peers=ctx.peers,
+        web=ctx.web,
+        nlp_1a=ctx.nlp_1a,
+        nlp_7=ctx.nlp_7,
+        earnings=ctx.earnings,
+        filings_extra=ctx.filings_extra,
+        goal=ctx.plan_goal,
+    )
+    ctx.memo = result
+    ctx.evidence.add(
+        source="memo",
+        title=f"{ctx.ticker} memo sections",
+        summary=f"mode={result.get('mode')}; proxies={len(result.get('proxy_rows') or [])}",
+        meta={"mode": result.get("mode")},
+    )
+    return result
+
+
 def tool_search_web(ctx: ToolContext) -> dict[str, Any]:
     from src.web_engine import (
         WEB_SUMMARY_PROMPT,
@@ -312,5 +462,11 @@ TOOL_REGISTRY: dict[str, Callable[[ToolContext], Any]] = {
     "summarize_item_1a": tool_summarize_item_1a,
     "summarize_item_7": tool_summarize_item_7,
     "run_dcf": tool_run_dcf,
+    "run_ev_ebitda": tool_run_ev_ebitda,
+    "get_peer_comps": tool_get_peer_comps,
+    "get_earnings": tool_get_earnings,
+    "fetch_recent_filings": tool_fetch_recent_filings,
+    "analyze_drivers": tool_analyze_drivers,
+    "draft_memo_sections": tool_draft_memo_sections,
     "search_web": tool_search_web,
 }

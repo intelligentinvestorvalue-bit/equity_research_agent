@@ -100,6 +100,17 @@
       });
 
       const a = plan.assumptions || {};
+      const m = plan.multiples || {};
+      const mb = m.base || {};
+      const mu = m.bull || {};
+      const mr = m.bear || {};
+      function bil(v) {
+        if (v === null || v === undefined || Number.isNaN(v)) return "";
+        const n = Number(v);
+        if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(2);
+        if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2);
+        return String(n);
+      }
       assumptionsEl.innerHTML = `
         <div class="plan-section">
           <p class="scenario-label">DCF assumptions</p>
@@ -109,6 +120,25 @@
           ${scenarioFields("base", a.base || {})}
           ${scenarioFields("bull", a.bull || {})}
           ${scenarioFields("bear", a.bear || {})}
+        </div>
+        <div class="plan-section">
+          <p class="scenario-label">EV/EBITDA assumptions</p>
+          <p class="fine">EBITDA in billions (e.g. 3.3 = $3.3B). Multiple as a raw number (e.g. 6.5).</p>
+          <div class="scenario-grid">
+            <p class="scenario-label">base</p>
+            <label>EBITDA $B<input name="m_base_ebitda" type="number" step="0.01" value="${bil(mb.ebitda)}" /></label>
+            <label>Multiple<input name="m_base_multiple" type="number" step="0.1" value="${mb.multiple ?? ""}" /></label>
+          </div>
+          <div class="scenario-grid">
+            <p class="scenario-label">bull</p>
+            <label>EBITDA $B<input name="m_bull_ebitda" type="number" step="0.01" value="${bil(mu.ebitda)}" /></label>
+            <label>Multiple<input name="m_bull_multiple" type="number" step="0.1" value="${mu.multiple ?? ""}" /></label>
+          </div>
+          <div class="scenario-grid">
+            <p class="scenario-label">bear</p>
+            <label>EBITDA $B<input name="m_bear_ebitda" type="number" step="0.01" value="${bil(mr.ebitda)}" /></label>
+            <label>Multiple<input name="m_bear_multiple" type="number" step="0.1" value="${mr.multiple ?? ""}" /></label>
+          </div>
         </div>
       `;
 

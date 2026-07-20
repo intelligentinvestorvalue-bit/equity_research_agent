@@ -40,7 +40,7 @@ def _heuristic_issues(plan: ResearchPlan, ctx: ToolContext, draft_md: str) -> li
     web = ctx.web or {}
     evidence_n = len(ctx.evidence.items())
 
-    if plan.template in {"valuation", "deep"} and evidence_n < 2:
+    if plan.template in {"valuation", "deep", "memo"} and evidence_n < 2:
         issues.append("Very few cited sources; conclusions may be under-supported.")
 
     wants_web = any("search_web" in s.tools for s in plan.enabled_sections())
@@ -61,6 +61,13 @@ def _heuristic_issues(plan: ResearchPlan, ctx: ToolContext, draft_md: str) -> li
             if upside is not None and upside < -0.7:
                 issues.append("Base-case implies deep downside vs spot (<-70%); confirm whether near-term FCF normalization is appropriate for this business.")
 
+    mult = getattr(ctx, "multiples", None) or {}
+    if any("run_ev_ebitda" in s.tools for s in plan.enabled_sections()):
+        if not mult.get("ok"):
+            issues.append("EV/EBITDA section was planned but multiples valuation did not complete.")
+    if any("draft_memo_sections" in s.tools for s in plan.enabled_sections()):
+        if not ((getattr(ctx, "memo", None) or {}).get("markdown")):
+            issues.append("Memo section was planned but thesis sections were not drafted.")
     if fund.get("free_cash_flow") is not None and float(fund["free_cash_flow"] or 0) < 0:
         if "normalized" not in draft_l and "negative" not in draft_l:
             issues.append("Company FCF is negative; ensure the report clearly flags normalized-margin DCF assumptions.")

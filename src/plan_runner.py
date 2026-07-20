@@ -83,6 +83,54 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
         lines.append(val_md.rstrip())
         lines.append("")
 
+    if ctx.multiples is not None:
+        from src.multiples import format_multiples_markdown
+
+        mult_md = ctx.multiples.get("report_markdown") or format_multiples_markdown(ctx.multiples)
+        cite_bit = cite(f"{plan.ticker} EV/EBITDA valuation")
+        if cite_bit:
+            mult_md = mult_md.replace(
+                "## Valuation — EV/EBITDA scenarios",
+                "## Valuation — EV/EBITDA scenarios" + cite_bit,
+                1,
+            )
+        lines.append(mult_md.rstrip())
+        lines.append("")
+
+    if ctx.peers is not None:
+        from src.peers import format_peer_comps_markdown
+
+        peer_md = ctx.peers.get("report_markdown") or format_peer_comps_markdown(ctx.peers)
+        lines.append(peer_md.rstrip())
+        lines.append("")
+
+    if ctx.earnings is not None:
+        from src.quant_engine import format_earnings_markdown
+
+        earn_md = ctx.earnings.get("report_markdown") or format_earnings_markdown(ctx.earnings)
+        lines.append(earn_md.rstrip())
+        lines.append("")
+
+    if ctx.filings_extra is not None:
+        from src.sec_engine import format_recent_filings_markdown
+
+        fil_md = ctx.filings_extra.get("report_markdown") or format_recent_filings_markdown(
+            ctx.filings_extra
+        )
+        lines.append(fil_md.rstrip())
+        lines.append("")
+
+    if ctx.drivers is not None:
+        from src.drivers import format_drivers_markdown
+
+        drv_md = ctx.drivers.get("report_markdown") or format_drivers_markdown(ctx.drivers)
+        lines.append(drv_md.rstrip())
+        lines.append("")
+
+    if ctx.memo is not None and ctx.memo.get("markdown"):
+        lines.append(ctx.memo["markdown"].rstrip())
+        lines.append("")
+
     if ctx.web is not None:
         # Prefer per-section reports when multiple web passes ran
         if ctx.web_reports:
@@ -192,6 +240,7 @@ def run_planned_research(
         evidence=evidence,
         progress=progress,
         plan_assumptions=plan.assumptions.model_dump() if plan.assumptions else None,
+        plan_multiples=plan.multiples.model_dump() if getattr(plan, "multiples", None) else None,
         plan_goal=plan.goal or "",
         plan_queries=plan_queries,
     )
@@ -229,14 +278,29 @@ def run_planned_research(
     ctx.loop_result = loop_result  # type: ignore[attr-defined]
 
     progress("charts", "Rendering charts")
-    think("act", "Building revenue/FCF and DCF charts.")
-    charts_meta = generate_research_charts(ticker, ctx.fundamentals, ctx.valuation)
+    think("act", "Building revenue/FCF, valuation, and peer charts.")
+    charts_meta = generate_research_charts(
+        ticker,
+        ctx.fundamentals,
+        ctx.valuation,
+        multiples=ctx.multiples,
+        peers=ctx.peers,
+    )
     ctx._charts_markdown = charts_markdown(charts_meta)  # type: ignore[attr-defined]
     think("think", f"Generated {len(charts_meta.get('charts') or [])} chart(s).")
 
     quant = {
         "fundamentals": ctx.fundamentals,
         "options": ctx.options,
+        "earnings": ctx.earnings,
+        "peers": {
+            "peers": (ctx.peers or {}).get("peers"),
+            "rows": (ctx.peers or {}).get("rows"),
+            "notes": (ctx.peers or {}).get("notes"),
+        }
+        if ctx.peers
+        else None,
+        "drivers": ctx.drivers,
     }
     financials_path = OUTPUT_DIR / f"{ticker}_financials.json"
     financials_path.write_text(
@@ -248,6 +312,8 @@ def run_planned_research(
                 "plan": plan.to_public_dict(),
                 "quant": quant,
                 "valuation": ctx.valuation,
+                "multiples": ctx.multiples,
+                "memo": {"mode": (ctx.memo or {}).get("mode")} if ctx.memo else None,
                 "loop": loop_result,
                 "charts": charts_meta,
                 "web": {
@@ -316,6 +382,12 @@ def run_planned_research(
         "plan": plan.to_public_dict(),
         "quant": quant,
         "valuation": ctx.valuation,
+        "multiples": {
+            "ok": (ctx.multiples or {}).get("ok"),
+            "scenarios": (ctx.multiples or {}).get("scenarios"),
+        }
+        if ctx.multiples
+        else None,
         "loop": loop_result,
         "critique": {
             "mode": critique.get("mode"),

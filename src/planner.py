@@ -79,24 +79,29 @@ def build_template_plan(
 
     company = None
     assumptions = default_assumptions()
+    multiples = None
     try:
+        from src.multiples import multiples_from_fundamentals
         from src.quant_engine import fetch_fundamentals
         from src.valuation import assumptions_from_fundamentals
 
         fund = fetch_fundamentals(ticker)
         if not fund.get("error"):
             assumptions = assumptions_from_fundamentals(fund)
+            multiples = multiples_from_fundamentals(fund)
             company = fund.get("company_name")
     except Exception as exc:  # noqa: BLE001
         logger.warning("Could not seed valuation assumptions for %s: %s", ticker, exc)
 
     sections = sections_for_template(tid, ticker, company=company, goal=goal)
-    # Income/valuation collaborative plans should use deep execution mode for web/SEC tools
-    exec_mode = "fast" if tid == "fast" and mode == "fast" else ("deep" if tid in {"valuation", "deep", "income"} else mode)
+    # Income/valuation/memo collaborative plans should use deep execution mode for web/SEC tools
+    exec_mode = "fast" if tid == "fast" and mode == "fast" else ("deep" if tid in {"valuation", "deep", "income", "memo"} else mode)
     if tid == "fast":
         exec_mode = "fast"
-    elif tid in {"valuation", "deep", "income"}:
+    elif tid in {"valuation", "deep", "income", "memo"}:
         exec_mode = "deep"
+
+    from src.multiples import default_multiples
 
     plan = ResearchPlan(
         ticker=ticker,
@@ -107,6 +112,7 @@ def build_template_plan(
         constraints=PlanConstraints(mode=exec_mode),
         planner_mode="template",
         assumptions=assumptions,
+        multiples=multiples or default_multiples(),
     )
     plan.summary_markdown = plan_summary_markdown(plan)
     return plan
@@ -156,6 +162,12 @@ _ALLOWED = {
     "summarize_item_1a",
     "summarize_item_7",
     "run_dcf",
+    "run_ev_ebitda",
+    "get_peer_comps",
+    "get_earnings",
+    "fetch_recent_filings",
+    "analyze_drivers",
+    "draft_memo_sections",
     "search_web",
 }
 
@@ -228,7 +240,7 @@ def generate_plan(
     # Optional Ollama refine only for generic deep/auto paths
     if os.getenv("OLLAMA_PLANNER", "").strip() not in {"1", "true", "yes"}:
         return built
-    if built.template in {"valuation", "income"}:
+    if built.template in {"valuation", "income", "memo"}:
         return built
     if not ollama_available():
         return built
@@ -281,6 +293,21 @@ def apply_plan_edits(plan: ResearchPlan, edits: dict[str, Any] | None) -> Resear
                 patched[scen] = {**(current.get(scen) or {}), **raw_assump[scen]}
         patched["user_edited"] = True
         data["assumptions"] = ValuationAssumptions.model_validate(patched).model_dump()
+
+    raw_mult = edits.get("multiples")
+    if isinstance(raw_mult, dict):
+        from src.multiples import MultiplesAssumptions
+
+        current_m = data.get("multiples") or {}
+        patched_m = {
+            **current_m,
+            **{k: v for k, v in raw_mult.items() if k not in {"base", "bull", "bear"}},
+        }
+        for scen in ("base", "bull", "bear"):
+            if scen in raw_mult and isinstance(raw_mult[scen], dict):
+                patched_m[scen] = {**(current_m.get(scen) or {}), **raw_mult[scen], "label": scen}
+        patched_m["user_edited"] = True
+        data["multiples"] = MultiplesAssumptions.model_validate(patched_m).model_dump()
 
     updated = ResearchPlan.model_validate(data)
     updated.summary_markdown = plan_summary_markdown(updated)

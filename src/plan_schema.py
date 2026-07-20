@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from src.multiples import MultiplesAssumptions, default_multiples
 from src.valuation import ValuationAssumptions, default_assumptions
 
 
@@ -16,6 +17,12 @@ ToolName = Literal[
     "summarize_item_1a",
     "summarize_item_7",
     "run_dcf",
+    "run_ev_ebitda",
+    "get_peer_comps",
+    "get_earnings",
+    "fetch_recent_filings",
+    "analyze_drivers",
+    "draft_memo_sections",
     "search_web",
 ]
 
@@ -45,6 +52,7 @@ class ResearchPlan(BaseModel):
     planner_mode: str = "template"  # template | ollama
     summary_markdown: str = ""
     assumptions: ValuationAssumptions = Field(default_factory=default_assumptions)
+    multiples: MultiplesAssumptions = Field(default_factory=default_multiples)
 
     def enabled_sections(self) -> list[PlanSection]:
         return [s for s in self.sections if s.enabled]
@@ -131,12 +139,18 @@ def plan_summary_markdown(plan: ResearchPlan) -> str:
         lines.append("")
 
     a = plan.assumptions
+    m = plan.multiples
     lines += [
-        "## Valuation assumptions",
+        "## Valuation assumptions (DCF)",
         f"- Explicit years: {a.explicit_years}",
         f"- Base: growth {a.base.revenue_growth:.1%}, FCF margin {a.base.fcf_margin:.1%}, WACC {a.base.wacc:.1%}",
         f"- Bull: growth {a.bull.revenue_growth:.1%}, FCF margin {a.bull.fcf_margin:.1%}, WACC {a.bull.wacc:.1%}",
         f"- Bear: growth {a.bear.revenue_growth:.1%}, FCF margin {a.bear.fcf_margin:.1%}, WACC {a.bear.wacc:.1%}",
+        "",
+        "## EV/EBITDA assumptions",
+        f"- Base: EBITDA {m.base.ebitda}, multiple {m.base.multiple:.1f}x",
+        f"- Bull: EBITDA {m.bull.ebitda}, multiple {m.bull.multiple:.1f}x",
+        f"- Bear: EBITDA {m.bear.ebitda}, multiple {m.bear.multiple:.1f}x",
         "",
         "## Constraints",
         f"- Max steps: {plan.constraints.max_steps}",

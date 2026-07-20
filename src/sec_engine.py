@@ -141,6 +141,110 @@ def fetch_10k_sections(ticker: str) -> dict[str, Any]:
     }
 
 
+def _resolve_cik(ticker: str, headers: dict[str, str]) -> int:
+    import requests
+
+    tickers = requests.get("https://www.sec.gov/files/company_tickers.json", headers=headers, timeout=60)
+    tickers.raise_for_status()
+    data = tickers.json()
+    for row in data.values():
+        if str(row.get("ticker", "")).upper() == ticker.upper():
+            return int(row["cik_str"])
+    raise ValueError(f"CIK not found for ticker {ticker}")
+
+
+def fetch_recent_filings(ticker: str, forms: list[str] | None = None, limit: int = 12) -> dict[str, Any]:
+    """
+    List recent 10-Q / 8-K (and optional other) filings from SEC submissions JSON.
+    Does not fully parse documents — headlines/meta for catalysts.
+    """
+    import requests
+
+    forms = forms or ["10-Q", "8-K", "10-K"]
+    form_set = {f.upper() for f in forms}
+    headers = {"User-Agent": settings.sec_user_agent, "Accept-Encoding": "gzip, deflate"}
+    try:
+        cik = _resolve_cik(ticker, headers)
+    except Exception as exc:  # noqa: BLE001
+        return {"ticker": ticker.upper(), "recent": [], "ok": False, "error": str(exc)}
+
+    cik_str = f"{cik:010d}"
+    try:
+        sub = requests.get(
+            f"https://data.sec.gov/submissions/CIK{cik_str}.json",
+            headers=headers,
+            timeout=60,
+        )
+        sub.raise_for_status()
+        recent = sub.json().get("filings", {}).get("recent", {})
+    except Exception as exc:  # noqa: BLE001
+        return {"ticker": ticker.upper(), "recent": [], "ok": False, "error": str(exc)}
+
+    out: list[dict[str, Any]] = []
+    forms_list = recent.get("form", [])
+    for i, form in enumerate(forms_list):
+        if form not in form_set:
+            continue
+        accession = recent.get("accessionNumber", [None])[i]
+        primary = recent.get("primaryDocument", [None])[i]
+        filing_date = recent.get("filingDate", [None])[i]
+        desc = None
+        if recent.get("primaryDocDescription"):
+            try:
+                desc = recent["primaryDocDescription"][i]
+            except Exception:  # noqa: BLE001
+                desc = None
+        url = None
+        if accession and primary:
+            acc_nodash = str(accession).replace("-", "")
+            url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_nodash}/{primary}"
+        out.append(
+            {
+                "form": form,
+                "filing_date": filing_date,
+                "accession": accession,
+                "description": desc or form,
+                "url": url,
+            }
+        )
+        if len(out) >= limit:
+            break
+
+    return {
+        "ticker": ticker.upper(),
+        "cik": cik,
+        "recent": out,
+        "ok": bool(out),
+        "notes": ["Headlines/meta only — documents not fully parsed in this pass."],
+    }
+
+
+def format_recent_filings_markdown(filings: dict[str, Any]) -> str:
+    lines = ["## Recent SEC filings (10-Q / 8-K)", ""]
+    if filings.get("error"):
+        lines.append(f"**Error:** {filings['error']}")
+        lines.append("")
+        return "\n".join(lines) + "\n"
+    rows = filings.get("recent") or []
+    if not rows:
+        lines.append("_No recent filings found._")
+        lines.append("")
+        return "\n".join(lines) + "\n"
+    lines.append("| Date | Form | Description |")
+    lines.append("|---|---|---|")
+    for r in rows:
+        desc = (r.get("description") or "").replace("|", "/")
+        link = r.get("url")
+        if link:
+            desc = f"[{desc}]({link})"
+        lines.append(f"| {r.get('filing_date')} | {r.get('form')} | {desc} |")
+    lines.append("")
+    for n in filings.get("notes") or []:
+        lines.append(f"_{n}_")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
 def save_section_blocks(sections: dict[str, Any], out_dir: Path | None = None) -> dict[str, str]:
     out_dir = out_dir or FILINGS_DIR
     paths: dict[str, str] = {}

@@ -163,11 +163,103 @@ def chart_base_fcf_path(ticker: str, valuation: dict[str, Any], out_dir: Path | 
     return path
 
 
+def chart_ev_ebitda_scenarios(
+    ticker: str, multiples: dict[str, Any], out_dir: Path | None = None
+) -> Path | None:
+    if not multiples or not multiples.get("ok"):
+        return None
+    scenarios = multiples.get("scenarios") or {}
+    labels, prices = [], []
+    for key in ("bear", "base", "bull"):
+        sc = scenarios.get(key) or {}
+        sp = sc.get("share_price")
+        if sp is None:
+            continue
+        labels.append(key)
+        prices.append(float(sp))
+    if not labels:
+        return None
+
+    plt = _setup_mpl()
+    out_dir = out_dir or CHARTS_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{ticker.upper()}_ev_ebitda_scenarios.png"
+    spot = multiples.get("spot_price")
+    colors = {"bear": "#c45c5c", "base": "#3d9b6e", "bull": "#5b8def"}
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.0))
+    bars = ax.bar(labels, prices, color=[colors.get(l, "#3d9b6e") for l in labels])
+    if spot is not None:
+        ax.axhline(float(spot), color="#e8f0eb", linestyle="--", linewidth=1.2, label=f"Spot ${float(spot):.2f}")
+        ax.legend(frameon=False, labelcolor="#e8f0eb")
+    ax.set_ylabel("Implied share price (USD)")
+    ax.set_title(f"{ticker.upper()} — EV/EBITDA scenario prices")
+    ax.grid(True, axis="y", alpha=0.35)
+    for bar, val in zip(bars, prices):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"${val:.2f}",
+            ha="center",
+            va="bottom" if val >= 0 else "top",
+            fontsize=9,
+            color="#e8f0eb",
+        )
+    fig.tight_layout()
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def chart_peer_normalized(
+    ticker: str, peers: dict[str, Any], out_dir: Path | None = None
+) -> Path | None:
+    """Normalized 5y price index for subject + peers."""
+    histories = (peers or {}).get("_histories") or (peers or {}).get("histories") or {}
+    if not histories:
+        return None
+    plt = _setup_mpl()
+    out_dir = out_dir or CHARTS_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{ticker.upper()}_peers_normalized.png"
+
+    fig, ax = plt.subplots(figsize=(8.4, 4.4))
+    plotted = 0
+    for sym, hist in histories.items():
+        try:
+            if hist is None or hist.empty or "Close" not in hist.columns:
+                continue
+            closes = hist["Close"].dropna()
+            if len(closes) < 20:
+                continue
+            indexed = closes / float(closes.iloc[0]) * 100.0
+            lw = 2.4 if sym.upper() == ticker.upper() else 1.2
+            ax.plot(indexed.index, indexed.values, label=sym.upper(), linewidth=lw)
+            plotted += 1
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("peer chart skip %s: %s", sym, exc)
+    if plotted < 1:
+        plt.close(fig)
+        return None
+    ax.axhline(100, color="#5a6e64", linewidth=0.8, linestyle=":")
+    ax.set_ylabel("Indexed price (start=100)")
+    ax.set_title(f"{ticker.upper()} — Normalized price vs peers")
+    ax.legend(frameon=False, labelcolor="#e8f0eb", fontsize=8, ncol=2)
+    ax.grid(True, alpha=0.35)
+    fig.tight_layout()
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def generate_research_charts(
     ticker: str,
     fund: dict[str, Any] | None,
     valuation: dict[str, Any] | None,
     out_dir: Path | None = None,
+    *,
+    multiples: dict[str, Any] | None = None,
+    peers: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Build available charts; returns metadata with paths and public URLs.
@@ -181,6 +273,16 @@ def generate_research_charts(
         ("revenue_fcf", "Revenue & FCF history", lambda: chart_revenue_fcf(ticker, fund or {}, out_dir)),
         ("dcf_scenarios", "DCF scenario prices", lambda: chart_dcf_scenarios(ticker, valuation or {}, out_dir)),
         ("base_fcf_path", "Base-case FCF path", lambda: chart_base_fcf_path(ticker, valuation or {}, out_dir)),
+        (
+            "ev_ebitda_scenarios",
+            "EV/EBITDA scenario prices",
+            lambda: chart_ev_ebitda_scenarios(ticker, multiples or {}, out_dir),
+        ),
+        (
+            "peers_normalized",
+            "Normalized price vs peers",
+            lambda: chart_peer_normalized(ticker, peers or {}, out_dir),
+        ),
     ]
     for key, title, fn in builders:
         try:

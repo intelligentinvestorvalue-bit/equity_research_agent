@@ -11,7 +11,12 @@ TEMPLATES: dict[str, dict[str, Any]] = {
     "auto": {
         "id": "auto",
         "label": "Auto (from goal)",
-        "description": "Pick valuation / income / deep / fast from your goal text",
+        "description": "Pick valuation / income / deep / memo / fast from your goal text",
+    },
+    "memo": {
+        "id": "memo",
+        "label": "Institutional deep dive (memo)",
+        "description": "Thesis memo: KPIs, EV/EBITDA + DCF, peers, catalysts, falsifiers, earnings, drivers",
     },
     "valuation": {
         "id": "valuation",
@@ -37,7 +42,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
 
 
 def list_templates() -> list[dict[str, Any]]:
-    order = ["auto", "valuation", "deep", "income", "fast"]
+    order = ["auto", "memo", "valuation", "deep", "income", "fast"]
     return [TEMPLATES[k] for k in order if k in TEMPLATES]
 
 
@@ -49,6 +54,16 @@ def infer_template_from_goal(goal: str, mode: str = "deep") -> str:
     if mode == "fast" and not g:
         return "fast"
 
+    memo_kw = (
+        "memo",
+        "thesis",
+        "deep dive",
+        "deep-dive",
+        "variant",
+        "falsif",
+        "catalyst calendar",
+        "institutional",
+    )
     valuation_kw = (
         "valuat",
         "dcf",
@@ -65,6 +80,8 @@ def infer_template_from_goal(goal: str, mode: str = "deep") -> str:
     income_kw = ("covered call", "put income", "wheel", "options income", "premium", "csp", "put screen")
     deep_kw = ("10-k", "10k", "diligence", "risk factor", "md&a", "mda", "filing")
 
+    if any(k in g for k in memo_kw):
+        return "memo"
     if any(k in g for k in valuation_kw):
         return "valuation"
     if any(k in g for k in income_kw):
@@ -126,6 +143,12 @@ def valuation_sections(ticker: str, company: str | None = None, goal: str = "") 
                 "Establish growth, operating/FCF margins, and WACC; run base / bull / bear "
                 "share-price scenarios from the assumption pack"
             ),
+        ),
+        PlanSection(
+            id="multiples",
+            title="(2b) EV/EBITDA priced-in scenarios",
+            tools=["run_ev_ebitda"],
+            notes="Cross-check DCF with EBITDA × multiple scenarios",
         ),
         PlanSection(
             id="web_analysts",
@@ -211,6 +234,95 @@ def deep_sections(ticker: str, company: str | None = None, goal: str = "") -> li
     return sections
 
 
+def memo_sections(ticker: str, company: str | None = None, goal: str = "") -> list[PlanSection]:
+    """Institutional deep-dive memo (Perplexity-style spine)."""
+    name = company or ticker
+    focus = goal.strip() or "institutional deep-dive: thesis, priced-in scenarios, catalysts, falsifiers"
+    analyst_q, driver_q = _company_queries(ticker, company, goal)
+    return [
+        PlanSection(
+            id="fundamentals",
+            title="(1) Snapshot, KPIs & capital structure",
+            tools=["get_fundamentals"],
+            notes=f"Multi-year KPI table, leverage, EV/EBITDA snapshot. Focus: {focus}",
+        ),
+        PlanSection(
+            id="multiples",
+            title="(2) EV/EBITDA priced-in scenarios",
+            tools=["run_ev_ebitda"],
+            notes="Bear/base/bull EBITDA × multiple → implied equity value",
+        ),
+        PlanSection(
+            id="valuation",
+            title="(3) DCF cross-check",
+            tools=["run_dcf"],
+            notes="FCF DCF as second valuation lens vs multiples",
+        ),
+        PlanSection(
+            id="peers",
+            title="(4) Peer & factor comps",
+            tools=["get_peer_comps"],
+            notes="Heuristic sector peers: returns, EV/EBITDA, leverage, volatility",
+        ),
+        PlanSection(
+            id="earnings",
+            title="(5) Earnings & surprise history",
+            tools=["get_earnings"],
+            notes="EPS estimate vs actual vs 1-day move when available",
+        ),
+        PlanSection(
+            id="web_analysts",
+            title="(6a) Street / narrative web",
+            tools=["search_web"],
+            notes="Analyst targets, thesis debates, guidance headlines",
+            queries=analyst_q + [f"{ticker} guidance OR investor day OR catalyst"],
+        ),
+        PlanSection(
+            id="web_drivers",
+            title="(6b) Drivers & proxies",
+            tools=["search_web"],
+            notes="Operating KPIs, contracts, refinancing, sector drivers",
+            queries=driver_q + [f"{name} {ticker} backlog OR contract OR refinancing OR leverage"],
+        ),
+        PlanSection(
+            id="sec_fetch",
+            title="(7a) SEC 10-K intake",
+            tools=["fetch_10k"],
+            notes="Latest 10-K for risks and MD&A",
+        ),
+        PlanSection(
+            id="recent_filings",
+            title="(7b) Recent 10-Q / 8-K headlines",
+            tools=["fetch_recent_filings"],
+            notes="Catalyst calendar inputs — meta only, not full parse",
+        ),
+        PlanSection(
+            id="risks",
+            title="(7c) Risk factors (Item 1A)",
+            tools=["summarize_item_1a"],
+            notes="Falsification inputs from filing risks",
+        ),
+        PlanSection(
+            id="mda",
+            title="(7d) MD&A (Item 7)",
+            tools=["summarize_item_7"],
+            notes="Business model and guidance cues",
+        ),
+        PlanSection(
+            id="drivers",
+            title="(8) Quarterly driver correlations",
+            tools=["analyze_drivers"],
+            notes="Suggestive FCF/revenue/debt vs return correlations (small-n caveats)",
+        ),
+        PlanSection(
+            id="memo",
+            title="(9) Thesis memo sections",
+            tools=["draft_memo_sections"],
+            notes="Exec summary, variant perception, catalysts, falsifiers, limitations",
+        ),
+    ]
+
+
 def fast_sections(ticker: str, company: str | None = None, goal: str = "") -> list[PlanSection]:
     from src.plan_schema import default_fast_sections
 
@@ -227,12 +339,13 @@ def sections_for_template(
     company: str | None = None,
     goal: str = "",
 ) -> list[PlanSection]:
-    tid = template_id if template_id in {"valuation", "deep", "income", "fast"} else "deep"
+    tid = template_id if template_id in {"valuation", "deep", "income", "fast", "memo"} else "deep"
     builders = {
         "valuation": valuation_sections,
         "deep": deep_sections,
         "income": income_sections,
         "fast": fast_sections,
+        "memo": memo_sections,
     }
     return builders[tid](ticker, company, goal)
 
@@ -241,6 +354,7 @@ def default_goal_for_template(template_id: str, goal: str = "") -> str:
     if goal.strip():
         return goal.strip()
     defaults = {
+        "memo": "Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers",
         "valuation": "Estimate intrinsic value under base / bull / bear scenarios",
         "deep": "Deep diligence: fundamentals, DCF, web, 10-K risks & MD&A",
         "income": "Screen put/call income opportunities with catalyst awareness",

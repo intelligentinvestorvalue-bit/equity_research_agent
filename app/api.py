@@ -44,6 +44,7 @@ class ApproveRequest(BaseModel):
     goal: str | None = None
     sections: list[dict[str, Any]] | None = None
     assumptions: dict[str, Any] | None = None
+    multiples: dict[str, Any] | None = None
     pin: str | None = None
 
 
@@ -384,6 +385,8 @@ async def approve_plan_api(job_id: str, body: ApproveRequest) -> dict[str, Any]:
         edits["sections"] = body.sections
     if body.assumptions is not None:
         edits["assumptions"] = body.assumptions
+    if body.multiples is not None:
+        edits["multiples"] = body.multiples
     plan = apply_plan_edits(plan, edits or None)
     job_store.update(job_id, plan=plan.to_public_dict(), goal=plan.goal)
     threading.Thread(target=_run_job, args=(job.id,), kwargs={"use_plan_path": True}, daemon=True).start()
@@ -468,9 +471,45 @@ async def approve_plan_form(
         if patch:
             assumption_edits[scen] = patch
 
+    def _num_field(name: str) -> float | None:
+        raw = form.get(name)
+        if raw is None or str(raw).strip() == "":
+            return None
+        try:
+            return float(str(raw))
+        except ValueError:
+            return None
+
+    def _ebitda_field(name: str) -> float | None:
+        """UI enters EBITDA in $B; convert to absolute dollars when magnitude looks like billions."""
+        v = _num_field(name)
+        if v is None:
+            return None
+        # If user enters 3.3 treat as $3.3B; if already huge keep as-is
+        if abs(v) < 1e6:
+            return v * 1e9
+        return v
+
+    multiples_edits: dict[str, Any] = {"user_edited": True}
+    for scen in ("base", "bull", "bear"):
+        patch_m: dict[str, Any] = {"label": scen}
+        ebitda = _ebitda_field(f"m_{scen}_ebitda")
+        multiple = _num_field(f"m_{scen}_multiple")
+        if ebitda is not None:
+            patch_m["ebitda"] = ebitda
+        if multiple is not None:
+            patch_m["multiple"] = multiple
+        if len(patch_m) > 1:
+            multiples_edits[scen] = patch_m
+
     plan = apply_plan_edits(
         ResearchPlan.model_validate(job.plan),
-        {"goal": goal, "sections": section_edits, "assumptions": assumption_edits},
+        {
+            "goal": goal,
+            "sections": section_edits,
+            "assumptions": assumption_edits,
+            "multiples": multiples_edits,
+        },
     )
     job_store.update(job_id, plan=plan.to_public_dict(), goal=plan.goal)
     threading.Thread(target=_run_job, args=(job.id,), kwargs={"use_plan_path": True}, daemon=True).start()
