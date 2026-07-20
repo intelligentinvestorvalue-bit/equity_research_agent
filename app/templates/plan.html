@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
+  {% set active_nav = active_nav or 'research' %}
+  {% include "partials/nav.html" %}
   <main class="wrap wide">
     <header>
       <p class="brand">{{ ticker or "…" }} research plan</p>

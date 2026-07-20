@@ -8,34 +8,110 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
+  {% include "partials/nav.html" %}
   <main class="wrap wide">
     <header class="row">
       <div>
         <p class="brand">{{ ticker }} report</p>
-        <p class="sub">{{ mode }} mode</p>
+        <p class="sub">
+          {{ mode }}{% if template %} · {{ template }}{% endif %}
+          {% if created_at %} · {{ created_at[:16].replace('T', ' ') }} UTC{% endif %}
+        </p>
+        {% if goal %}<p class="fine">Goal: {{ goal }}</p>{% endif %}
       </div>
       <div class="actions">
         <a class="btn secondary" href="/jobs/{{ job_id }}/report.md">Download .md</a>
+        <a class="btn secondary" href="/dashboard">Dashboard</a>
         <a class="btn secondary" href="/">New</a>
       </div>
     </header>
 
-    {% if charts %}
-    <section class="chart-gallery" aria-label="Charts">
-      {% for c in charts %}
-      <figure class="chart-card">
-        <figcaption>{{ c.title }}</figcaption>
-        <img src="{{ c.url }}" alt="{{ c.title }}" loading="lazy" />
-      </figure>
-      {% endfor %}
-    </section>
-    {% endif %}
+    {% if tabs %}
+    <div class="report-tabs" data-tabs>
+      <div class="tab-bar" role="tablist" aria-label="Report sections">
+        {% for t in tabs %}
+        <button type="button"
+                class="tab-btn{% if loop.first %} active{% endif %}"
+                role="tab"
+                id="tab-{{ t.id }}"
+                aria-selected="{{ 'true' if loop.first else 'false' }}"
+                aria-controls="panel-{{ t.id }}"
+                data-tab="{{ t.id }}">{{ t.label }}</button>
+        {% endfor %}
+      </div>
 
+      {% for t in tabs %}
+      <div class="tab-panel{% if loop.first %} active{% endif %}"
+           role="tabpanel"
+           id="panel-{{ t.id }}"
+           aria-labelledby="tab-{{ t.id }}"
+           {% if not loop.first %}hidden{% endif %}>
+        {% if t.kind == 'charts' %}
+        <section class="chart-gallery" aria-label="Charts">
+          {% for c in t.charts %}
+          <figure class="chart-card">
+            <figcaption>{{ c.title }}</figcaption>
+            <img src="{{ c.url }}" alt="{{ c.title }}" loading="lazy" />
+          </figure>
+          {% endfor %}
+        </section>
+        {% else %}
+        <article class="report tab-report" data-md="{{ t.id }}"></article>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
     <article id="report" class="report"></article>
+    {% endif %}
   </main>
   <script>
-    const raw = {{ markdown|tojson }};
-    document.getElementById("report").innerHTML = marked.parse(raw || "");
+    const tabMarkdown = {
+      {% for t in tabs %}
+      {% if t.kind != 'charts' %}
+      {{ t.id|tojson }}: {{ t.markdown|tojson }},
+      {% endif %}
+      {% endfor %}
+    };
+    const fallbackMd = {{ markdown|tojson }};
+
+    Object.keys(tabMarkdown).forEach((id) => {
+      const el = document.querySelector(`[data-md="${id}"]`);
+      if (el) el.innerHTML = marked.parse(tabMarkdown[id] || "");
+    });
+    const plain = document.getElementById("report");
+    if (plain) plain.innerHTML = marked.parse(fallbackMd || "");
+
+    const root = document.querySelector("[data-tabs]");
+    if (root) {
+      const buttons = [...root.querySelectorAll(".tab-btn")];
+      const panels = [...root.querySelectorAll(".tab-panel")];
+
+      function activate(id, pushHash) {
+        buttons.forEach((btn) => {
+          const on = btn.dataset.tab === id;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        panels.forEach((panel) => {
+          const on = panel.id === `panel-${id}`;
+          panel.classList.toggle("active", on);
+          panel.hidden = !on;
+        });
+        if (pushHash) {
+          history.replaceState(null, "", `#${id}`);
+        }
+      }
+
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => activate(btn.dataset.tab, true));
+      });
+
+      const hash = (location.hash || "").replace(/^#/, "");
+      if (hash && buttons.some((b) => b.dataset.tab === hash)) {
+        activate(hash, false);
+      }
+    }
   </script>
 </body>
 </html>

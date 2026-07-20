@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Dashboard · Equity Research</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  {% include "partials/nav.html" %}
+  <main class="wrap wide">
+    <header class="row">
+      <div>
+        <p class="brand">Dashboard</p>
+        <p class="sub">Earlier researched stocks and job history</p>
+      </div>
+      <div class="actions">
+        <a class="btn secondary" href="/">New research</a>
+      </div>
+    </header>
+
+    {% if tickers %}
+    <section class="ticker-strip" aria-label="Tickers with completed reports">
+      <p class="scenario-label">Stocks researched</p>
+      <div class="ticker-chips">
+        {% for t in tickers %}
+        <a class="ticker-chip" href="{{ t.href }}">{{ t.ticker }}</a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <form class="dash-filters" method="get" action="/dashboard">
+      <label for="ticker">Ticker</label>
+      <input id="ticker" name="ticker" type="text" value="{{ ticker_q }}"
+             placeholder="Filter e.g. UUUU" maxlength="12" autocomplete="off" />
+
+      <label for="status">Status</label>
+      <select id="status" name="status">
+        <option value="" {% if not status_q %}selected{% endif %}>All</option>
+        {% for s in ["completed", "running", "awaiting_approval", "planning", "failed", "queued"] %}
+        <option value="{{ s }}" {% if status_q == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit">Filter</button>
+      {% if ticker_q or status_q %}
+      <a class="btn secondary" href="/dashboard">Clear</a>
+      {% endif %}
+    </form>
+
+    <p class="fine">{{ total }} job{% if total != 1 %}s{% endif %}{% if ticker_q or status_q %} matching filters{% endif %}</p>
+
+    {% if jobs %}
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Status</th>
+            <th>Template</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in jobs %}
+          <tr>
+            <td>
+              <a class="link" href="{{ j.href }}"><strong>{{ j.ticker }}</strong></a>
+              {% if j.goal %}<div class="fine dash-goal">{{ j.goal[:80] }}{% if j.goal|length > 80 %}…{% endif %}</div>{% endif %}
+            </td>
+            <td><span class="badge status-{{ j.status }}">{{ j.status }}</span></td>
+            <td class="muted">{{ j.template }} · {{ j.mode }}</td>
+            <td class="muted">{{ j.created_at[:16].replace('T', ' ') }}</td>
+            <td class="dash-actions">
+              {% if j.status == 'completed' %}
+              <a class="btn secondary compact" href="{{ j.href }}">Open report</a>
+              {% elif j.status in ['planning', 'awaiting_approval'] %}
+              <a class="btn secondary compact" href="{{ j.href }}">Review plan</a>
+              {% else %}
+              <a class="btn secondary compact" href="{{ j.href }}">View job</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="status warn">No jobs yet. <a class="link" href="/">Start a research run</a>.</p>
+    {% endif %}
+  </main>
+</body>
+</html>

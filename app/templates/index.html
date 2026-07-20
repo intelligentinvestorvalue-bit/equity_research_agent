@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
+  {% set active_nav = active_nav or 'research' %}
+  {% include "partials/nav.html" %}
   <main class="wrap">
     <header>
       <p class="brand">Equity Research Agent</p>
@@ -59,7 +61,10 @@
 
     {% if recent_jobs %}
     <section class="recent-jobs">
-      <p class="scenario-label">Recent jobs</p>
+      <div class="row" style="margin-bottom:0.35rem;align-items:baseline">
+        <p class="scenario-label" style="margin:0">Recent jobs</p>
+        <a class="link" href="/dashboard">View all →</a>
+      </div>
       <ul class="recent-list">
         {% for j in recent_jobs %}
         <li>

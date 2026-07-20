@@ -227,15 +227,50 @@ class JobStore:
                 thoughts = thoughts[-200:]
             self.update(job_id, thoughts=thoughts)
 
-    def list_recent(self, limit: int = 20) -> list[Job]:
+    def list_recent(
+        self,
+        limit: int = 20,
+        *,
+        ticker: str | None = None,
+        status: str | None = None,
+        offset: int = 0,
+    ) -> list[Job]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if ticker:
+            clauses.append("UPPER(ticker) = ?")
+            params.append(ticker.strip().upper())
+        if status:
+            clauses.append("status = ?")
+            params.append(status.strip().lower())
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.extend([max(1, min(int(limit), 200)), max(0, int(offset))])
         with self._lock:
             conn = connect()
             try:
                 rows = conn.execute(
-                    "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?",
-                    (limit,),
+                    f"SELECT * FROM jobs {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                    params,
                 ).fetchall()
                 return [_row_to_job(r) for r in rows]
+            finally:
+                conn.close()
+
+    def count_jobs(self, *, ticker: str | None = None, status: str | None = None) -> int:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if ticker:
+            clauses.append("UPPER(ticker) = ?")
+            params.append(ticker.strip().upper())
+        if status:
+            clauses.append("status = ?")
+            params.append(status.strip().lower())
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._lock:
+            conn = connect()
+            try:
+                row = conn.execute(f"SELECT COUNT(*) AS n FROM jobs {where}", params).fetchone()
+                return int(row["n"]) if row else 0
             finally:
                 conn.close()
 

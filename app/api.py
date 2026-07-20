@@ -20,6 +20,7 @@ from src.orchestrator import run_research, run_with_plan
 from src.plan_schema import ResearchPlan
 from src.plan_templates import list_templates
 from src.planner import apply_plan_edits, generate_plan
+from src.report_tabs import build_report_tabs, job_href
 
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
@@ -166,24 +167,24 @@ def _start_job_flow(
     return job.id
 
 
+def _job_card(j: Any) -> dict[str, Any]:
+    return {
+        "id": j.id,
+        "ticker": j.ticker,
+        "status": j.status,
+        "mode": j.mode,
+        "template": j.template,
+        "goal": j.goal or "",
+        "created_at": j.created_at,
+        "finished_at": j.finished_at,
+        "href": job_href(j),
+        "error": j.error,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> Any:
-    recent = []
-    for j in job_store.list_recent(8):
-        recent.append(
-            {
-                "id": j.id,
-                "ticker": j.ticker,
-                "status": j.status,
-                "template": j.template,
-                "created_at": j.created_at,
-                "href": (
-                    f"/jobs/{j.id}/report"
-                    if j.status == "completed"
-                    else (f"/jobs/{j.id}/plan" if j.status in {"planning", "awaiting_approval"} else f"/jobs/{j.id}")
-                ),
-            }
-        )
+    recent = [_job_card(j) for j in job_store.list_recent(8)]
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -193,6 +194,52 @@ async def home(request: Request) -> Any:
             "pin_required": bool(settings.access_pin),
             "templates": list_templates(),
             "recent_jobs": recent,
+            "active_nav": "research",
+        },
+    )
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(
+    request: Request,
+    ticker: str = "",
+    status: str = "",
+) -> Any:
+    ticker_q = (ticker or "").strip().upper()
+    status_q = (status or "").strip().lower()
+    if status_q and status_q not in {
+        "queued",
+        "planning",
+        "awaiting_approval",
+        "running",
+        "completed",
+        "failed",
+    }:
+        status_q = ""
+    jobs = [
+        _job_card(j)
+        for j in job_store.list_recent(
+            100,
+            ticker=ticker_q or None,
+            status=status_q or None,
+        )
+    ]
+    total = job_store.count_jobs(ticker=ticker_q or None, status=status_q or None)
+    # Latest completed per ticker for quick browse
+    by_ticker: dict[str, dict[str, Any]] = {}
+    for j in job_store.list_recent(100, status="completed"):
+        if j.ticker not in by_ticker:
+            by_ticker[j.ticker] = _job_card(j)
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "jobs": jobs,
+            "total": total,
+            "ticker_q": ticker_q,
+            "status_q": status_q,
+            "tickers": sorted(by_ticker.values(), key=lambda x: x["ticker"]),
+            "active_nav": "dashboard",
         },
     )
 
@@ -240,6 +287,7 @@ async def start_research_form(
                 "pin_required": bool(settings.access_pin),
                 "templates": list_templates(),
                 "recent_jobs": [],
+                "active_nav": "research",
             },
             status_code=401,
         )
@@ -464,15 +512,23 @@ async def job_report_page(request: Request, job_id: str) -> Any:
             "job.html",
             {"job_id": job.id, "ticker": job.ticker, "mode": job.mode, "waiting": True},
         )
+    md = job.result.get("report_markdown") or ""
+    charts = ((job.result.get("charts") or {}).get("charts") or [])
+    tabs = build_report_tabs(md, charts)
     return templates.TemplateResponse(
         request,
         "report.html",
         {
             "ticker": job.ticker,
             "mode": job.mode,
-            "markdown": job.result.get("report_markdown") or "",
-            "charts": ((job.result.get("charts") or {}).get("charts") or []),
+            "template": job.template,
+            "goal": job.goal,
+            "markdown": md,
+            "charts": charts,
+            "tabs": tabs,
             "job_id": job.id,
+            "created_at": job.created_at,
+            "active_nav": "dashboard",
         },
     )
 
