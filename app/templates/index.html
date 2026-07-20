@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Equity Research</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <p class="brand">Equity Research Agent</p>
+      <p class="sub">Local · Llama via Ollama · same Wi‑Fi</p>
+    </header>
+
+    {% if error %}
+    <p class="banner error">{{ error }}</p>
+    {% endif %}
+
+    <p class="status {% if ollama_up %}ok{% else %}warn{% endif %}">
+      {% if ollama_up %}Ollama up · model {{ model }}{% else %}Ollama offline · rule-based NLP fallback{% endif %}
+    </p>
+
+    <form class="card-form" method="post" action="/research">
+      <label for="ticker">Ticker</label>
+      <input id="ticker" name="ticker" type="text" inputmode="latin" autocomplete="off"
+             placeholder="AAPL" required maxlength="12" />
+
+      <label for="mode">Mode</label>
+      <select id="mode" name="mode">
+        <option value="fast">Fast — fundamentals + options</option>
+        <option value="deep" selected>Deep — + SEC 10-K + local LLM</option>
+      </select>
+
+      {% if pin_required %}
+      <label for="pin">PIN</label>
+      <input id="pin" name="pin" type="password" inputmode="numeric" />
+      {% endif %}
+
+      <button type="submit">Start research</button>
+    </form>
+
+    <p class="fine">Not investment advice. Reports stay on this machine under <code>output/</code>.</p>
+  </main>
+</body>
+</html>

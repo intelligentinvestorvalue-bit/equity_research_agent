@@ -1,0 +1,141 @@
+:root {
+  --bg: #0f1714;
+  --panel: #1a2621;
+  --text: #e8f0eb;
+  --muted: #9bb0a4;
+  --accent: #3d9b6e;
+  --accent-dim: #2a6b4c;
+  --warn: #c9853a;
+  --error: #c45c5c;
+  --radius: 14px;
+  --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font);
+  color: var(--text);
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, #1e3d30 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, #243028 0%, transparent 50%),
+    var(--bg);
+}
+
+.wrap {
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+.wrap.wide { width: min(820px, 100%); }
+
+.brand {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem;
+}
+.sub { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+.status {
+  margin: 1.25rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  font-size: 0.95rem;
+}
+.status.ok { border-left: 4px solid var(--accent); }
+.status.warn { border-left: 4px solid var(--warn); }
+
+.banner.error {
+  background: #3a1f1f;
+  color: #f0c8c8;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+}
+
+.card-form {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.25rem;
+  background: var(--panel);
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid #2a3a32;
+}
+label { font-size: 0.85rem; color: var(--muted); margin-top: 0.35rem; }
+input, select, button {
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid #344840;
+  background: #121c18;
+  color: var(--text);
+  min-height: 3rem;
+}
+button, .btn {
+  margin-top: 0.75rem;
+  background: var(--accent);
+  border: none;
+  color: #06140e;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+button:active { background: var(--accent-dim); }
+.btn.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid #3a4f45;
+  padding: 0.65rem 1rem;
+  min-height: auto;
+  font-size: 0.95rem;
+  margin-top: 0;
+}
+
+.fine { color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
+.link { color: var(--accent); }
+
+.panel { margin: 1.5rem 0; }
+.bar {
+  height: 8px;
+  background: #243028;
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+#fill {
+  height: 100%;
+  width: 8%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 0.4s ease;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.report {
+  background: var(--panel);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 1.25rem 1.35rem;
+  line-height: 1.55;
+  border: 1px solid #2a3a32;
+  overflow-wrap: anywhere;
+}
+.report h1, .report h2, .report h3 { line-height: 1.25; }
+.report code { font-size: 0.9em; }
+
+@media (max-width: 480px) {
+  .brand { font-size: 1.45rem; }
+  input, select, button { font-size: 1.05rem; }
+}

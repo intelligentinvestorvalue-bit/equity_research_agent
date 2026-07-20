@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ ticker }} report</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <main class="wrap wide">
+    <header class="row">
+      <div>
+        <p class="brand">{{ ticker }} report</p>
+        <p class="sub">{{ mode }} mode</p>
+      </div>
+      <div class="actions">
+        <a class="btn secondary" href="/jobs/{{ job_id }}/report.md">Download .md</a>
+        <a class="btn secondary" href="/">New</a>
+      </div>
+    </header>
+    <article id="report" class="report"></article>
+  </main>
+  <script>
+    const raw = {{ markdown|tojson }};
+    document.getElementById("report").innerHTML = marked.parse(raw || "");
+  </script>
+</body>
+</html>

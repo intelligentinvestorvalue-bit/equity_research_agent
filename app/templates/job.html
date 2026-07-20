@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ ticker }} research</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <p class="brand">{{ ticker }}</p>
+      <p class="sub">Mode: {{ mode }} · Job {{ job_id[:8] }}…</p>
+    </header>
+
+    <div id="panel" class="panel">
+      <p id="state" class="status">Starting…</p>
+      <p id="detail" class="fine"></p>
+      <div class="bar"><div id="fill"></div></div>
+    </div>
+
+    <p><a class="link" href="/">← New research</a></p>
+  </main>
+
+  <script>
+    const jobId = {{ job_id|tojson }};
+    const stateEl = document.getElementById("state");
+    const detailEl = document.getElementById("detail");
+    const fillEl = document.getElementById("fill");
+
+    const stageWidth = { queued: "8%", starting: "12%", quant: "35%", sec: "60%", nlp: "85%", done: "100%", error: "100%" };
+
+    async function tick() {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        const data = await res.json();
+        stateEl.textContent = `${data.status} · ${data.stage}`;
+        detailEl.textContent = data.message || "";
+        fillEl.style.width = stageWidth[data.stage] || "20%";
+        if (data.status === "completed") {
+          window.location.href = `/jobs/${jobId}/report`;
+          return;
+        }
+        if (data.status === "failed") {
+          stateEl.className = "status warn";
+          detailEl.textContent = data.error || data.message || "Failed";
+          return;
+        }
+      } catch (e) {
+        detailEl.textContent = "Waiting for server…";
+      }
+      setTimeout(tick, 1500);
+    }
+    tick();
+  </script>
+</body>
+</html>
