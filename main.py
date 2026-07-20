@@ -21,6 +21,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--goal", default="", help="Optional research goal for the planner")
     parser.add_argument(
+        "--template",
+        default="auto",
+        choices=["auto", "valuation", "deep", "income", "fast"],
+        help="Plan template (auto infers from goal)",
+    )
+    parser.add_argument(
         "--legacy",
         action="store_true",
         help="Use linear pipeline instead of plan-driven tools",
@@ -36,12 +42,17 @@ def main(argv: list[str] | None = None) -> int:
     def progress(stage: str, message: str) -> None:
         print(f"[{stage}] {message}", flush=True)
 
+    def think(kind: str, message: str) -> None:
+        print(f"[{kind}] {message}", flush=True)
+
     result = run_research(
         args.ticker,
         args.mode,
         progress=progress,
         goal=args.goal,
+        template=args.template,
         use_plan=not args.legacy,
+        think=think,
     )
     fund = (result.get("quant") or {}).get("fundamentals") or {}
     ratios = fund.get("ratios") or {}

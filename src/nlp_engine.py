@@ -98,6 +98,15 @@ def _generate(prompt: str) -> str:
 
 
 def summarize_section(text: str | None, label: str, use_llm: bool = True) -> dict[str, Any]:
+    return summarize_text(text, label, prompt_template=ANALYSIS_PROMPT, use_llm=use_llm)
+
+
+def summarize_text(
+    text: str | None,
+    label: str,
+    prompt_template: str = ANALYSIS_PROMPT,
+    use_llm: bool = True,
+) -> dict[str, Any]:
     if not text:
         return {"label": label, "mode": "empty", "markdown": f"### {label}\nNo text extracted.\n"}
 
@@ -107,7 +116,7 @@ def summarize_section(text: str | None, label: str, use_llm: bool = True) -> dic
     parts: list[str] = []
     try:
         for i, chunk in enumerate(chunk_text(text), start=1):
-            prompt = ANALYSIS_PROMPT.format(chunk=chunk)
+            prompt = prompt_template.format(chunk=chunk)
             parts.append(_generate(prompt) or f"(empty model response for chunk {i})")
         if len(parts) == 1:
             md = f"### {label}\n{parts[0]}\n"

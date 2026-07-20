@@ -34,6 +34,8 @@ def run_research(
     goal: str = "",
     *,
     use_plan: bool = True,
+    template: str = "auto",
+    think: Any | None = None,
 ) -> dict[str, Any]:
     """
     mode:
@@ -53,8 +55,8 @@ def run_research(
 
     if use_plan:
         progress("plan", "Generating research plan")
-        plan = generate_plan(ticker, mode=mode, goal=goal)
-        return run_planned_research(plan, progress=progress)
+        plan = generate_plan(ticker, mode=mode, goal=goal, template=template)
+        return run_planned_research(plan, progress=progress, think=think)
 
     started = datetime.now(timezone.utc).isoformat()
     progress("quant", f"Fetching fundamentals/options for {ticker}")
@@ -122,11 +124,12 @@ def run_research(
 def run_with_plan(
     plan: ResearchPlan | dict[str, Any],
     progress: ProgressCb | None = None,
+    think: Any | None = None,
 ) -> dict[str, Any]:
     """Execute an already-approved plan."""
     if isinstance(plan, dict):
         plan = ResearchPlan.model_validate(plan)
-    return run_planned_research(plan, progress=progress)
+    return run_planned_research(plan, progress=progress, think=think)
 
 
 def _format_fast_report(ticker: str, quant: dict[str, Any]) -> str:

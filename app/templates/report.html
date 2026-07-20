@@ -19,6 +19,18 @@
         <a class="btn secondary" href="/">New</a>
       </div>
     </header>
+
+    {% if charts %}
+    <section class="chart-gallery" aria-label="Charts">
+      {% for c in charts %}
+      <figure class="chart-card">
+        <figcaption>{{ c.title }}</figcaption>
+        <img src="{{ c.url }}" alt="{{ c.title }}" loading="lazy" />
+      </figure>
+      {% endfor %}
+    </section>
+    {% endif %}
+
     <article id="report" class="report"></article>
   </main>
   <script>

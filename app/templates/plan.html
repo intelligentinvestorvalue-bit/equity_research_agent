@@ -19,7 +19,7 @@
 
     <div id="waiting" class="panel" {% if status == 'awaiting_approval' %}hidden{% endif %}>
       <p id="state" class="status">{{ status }} — drafting plan…</p>
-      <p class="fine">You’ll review sections before any SEC or LLM work starts.</p>
+      <p class="fine">Template-driven sections (valuation / deep / income). Review before research runs.</p>
       <div class="bar"><div id="fill" style="width:25%"></div></div>
     </div>
 
@@ -30,13 +30,15 @@
 
       <div id="sections"></div>
 
+      <div id="assumptions" class="assumptions"></div>
+
       {% if pin_required %}
       <label for="pin">PIN</label>
       <input id="pin" name="pin" type="password" inputmode="numeric" />
       {% endif %}
 
       <button type="submit">Approve &amp; run</button>
-      <p class="fine">Uncheck a section to skip it. Notes steer how tools are interpreted in the report.</p>
+      <p class="fine">Rates are in percent (e.g. 8 = 8%). Uncheck a section to skip it. If you leave defaults, live fundamentals will re-seed growth/margins at run time.</p>
     </form>
 
     <p><a class="link" href="/">← Cancel / new</a></p>
@@ -47,15 +49,37 @@
     const waiting = document.getElementById("waiting");
     const form = document.getElementById("plan-form");
     const sectionsEl = document.getElementById("sections");
+    const assumptionsEl = document.getElementById("assumptions");
     const stateEl = document.getElementById("state");
     const goalEl = document.getElementById("goal");
     const fillEl = document.getElementById("fill");
     let rendered = false;
 
+    function pct(x) {
+      if (x === null || x === undefined || Number.isNaN(x)) return "";
+      return (Number(x) * 100).toFixed(1);
+    }
+
+    function scenarioFields(name, sc) {
+      return `
+        <div class="scenario-grid">
+          <p class="scenario-label">${name}</p>
+          <label>Growth %<input name="${name}_growth" type="number" step="0.1" value="${pct(sc.revenue_growth)}" /></label>
+          <label>FCF margin %<input name="${name}_fcf_margin" type="number" step="0.1" value="${pct(sc.fcf_margin)}" /></label>
+          <label>WACC %<input name="${name}_wacc" type="number" step="0.1" value="${pct(sc.wacc)}" /></label>
+          <label>Term. g %<input name="${name}_terminal_growth" type="number" step="0.1" value="${pct(sc.terminal_growth)}" /></label>
+        </div>
+      `;
+    }
+
     function renderPlan(plan) {
       if (rendered) return;
       rendered = true;
       if (plan.goal) goalEl.value = plan.goal;
+      if (plan.template) {
+        const sub = document.querySelector(".sub");
+        if (sub) sub.textContent = `Template: ${plan.template} · Mode: ${plan.mode || ""} · Job ${jobId.slice(0,8)}…`;
+      }
       sectionsEl.innerHTML = "";
       (plan.sections || []).forEach((sec) => {
         const block = document.createElement("div");
@@ -72,6 +96,20 @@
         `;
         sectionsEl.appendChild(block);
       });
+
+      const a = plan.assumptions || {};
+      assumptionsEl.innerHTML = `
+        <div class="plan-section">
+          <p class="scenario-label">DCF assumptions</p>
+          <label for="explicit_years">Explicit forecast years</label>
+          <input id="explicit_years" name="explicit_years" type="number" min="1" max="15"
+                 value="${a.explicit_years || 5}" />
+          ${scenarioFields("base", a.base || {})}
+          ${scenarioFields("bull", a.bull || {})}
+          ${scenarioFields("bear", a.bear || {})}
+        </div>
+      `;
+
       waiting.hidden = true;
       form.hidden = false;
     }

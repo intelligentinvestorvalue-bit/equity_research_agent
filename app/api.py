@@ -13,11 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from src.config import settings
+from src.config import OUTPUT_DIR, settings
 from src.jobs import job_store
 from src.nlp_engine import ollama_available
 from src.orchestrator import run_research, run_with_plan
 from src.plan_schema import ResearchPlan
+from src.plan_templates import list_templates
 from src.planner import apply_plan_edits, generate_plan
 
 APP_DIR = Path(__file__).resolve().parent
@@ -25,12 +26,15 @@ templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
 app = FastAPI(title="Equity Research Agent", version="0.2.0")
 app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
+(OUTPUT_DIR / "charts").mkdir(parents=True, exist_ok=True)
+app.mount("/charts", StaticFiles(directory=str(OUTPUT_DIR / "charts")), name="charts")
 
 
 class ResearchRequest(BaseModel):
     ticker: str = Field(..., min_length=1, max_length=12)
     mode: str = Field(default="deep", pattern="^(fast|deep|comprehensive)$")
     goal: str = ""
+    template: str = "auto"
     collaborative: bool = True
     pin: str | None = None
 
@@ -38,6 +42,7 @@ class ResearchRequest(BaseModel):
 class ApproveRequest(BaseModel):
     goal: str | None = None
     sections: list[dict[str, Any]] | None = None
+    assumptions: dict[str, Any] | None = None
     pin: str | None = None
 
 
@@ -58,6 +63,11 @@ def _slim_result(result: dict[str, Any]) -> dict[str, Any]:
         "nlp": result.get("nlp"),
         "plan": result.get("plan"),
         "evidence": result.get("evidence"),
+        "valuation": result.get("valuation"),
+        "web": result.get("web"),
+        "loop": result.get("loop"),
+        "critique": result.get("critique"),
+        "charts": result.get("charts"),
         "quant_summary": {
             "ratios": ((result.get("quant") or {}).get("fundamentals") or {}).get("ratios"),
             "options_candidates": len(
@@ -84,7 +94,7 @@ def _plan_job(job_id: str) -> None:
         return
     try:
         job_store.update(job_id, status="planning", stage="planning", message="Drafting research plan…")
-        plan = generate_plan(job.ticker, mode=job.mode, goal=job.goal)
+        plan = generate_plan(job.ticker, mode=job.mode, goal=job.goal, template=job.template)
         job_store.update(
             job_id,
             status="awaiting_approval",
@@ -104,12 +114,23 @@ def _run_job(job_id: str, *, use_plan_path: bool = True) -> None:
     def progress(stage: str, message: str) -> None:
         job_store.update(job_id, status="running", stage=stage, message=message)
 
+    def think(kind: str, message: str) -> None:
+        job_store.append_thought(job_id, kind, message)
+
     try:
         job_store.update(job_id, status="running", stage="starting", message="Job started")
+        think("think", f"Job started for {job.ticker} ({job.template or job.mode}).")
         if use_plan_path and job.plan:
-            result = run_with_plan(job.plan, progress=progress)
+            result = run_with_plan(job.plan, progress=progress, think=think)
         else:
-            result = run_research(job.ticker, job.mode, progress=progress, goal=job.goal, use_plan=True)
+            result = run_research(
+                job.ticker,
+                job.mode,
+                progress=progress,
+                goal=job.goal,
+                template=job.template,
+                use_plan=True,
+            )
         job_store.update(
             job_id,
             status="completed",
@@ -123,13 +144,22 @@ def _run_job(job_id: str, *, use_plan_path: bool = True) -> None:
         _fail_job(job_id, exc)
 
 
-def _start_job_flow(ticker: str, mode: str, goal: str, collaborative: bool) -> str:
+def _start_job_flow(
+    ticker: str,
+    mode: str,
+    goal: str,
+    collaborative: bool,
+    template: str = "auto",
+) -> str:
     mode = "fast" if mode == "fast" else "deep"
-    # Fast mode skips collaborative planning by default
-    collab = collaborative and mode == "deep"
-    job = job_store.create(ticker, mode, goal=goal, collaborative=collab)
+    from src.plan_templates import resolve_template_id
+
+    tid = resolve_template_id(template, goal=goal, mode=mode)
+    collab = collaborative and tid != "fast"
+    job = job_store.create(
+        ticker, mode, goal=goal, collaborative=collab, template=template or "auto"
+    )
     if collab:
-        # Template planner is sync/fast; run inline so the plan page is ready immediately.
         _plan_job(job.id)
     else:
         threading.Thread(target=_run_job, args=(job.id,), daemon=True).start()
@@ -138,6 +168,22 @@ def _start_job_flow(ticker: str, mode: str, goal: str, collaborative: bool) -> s
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> Any:
+    recent = []
+    for j in job_store.list_recent(8):
+        recent.append(
+            {
+                "id": j.id,
+                "ticker": j.ticker,
+                "status": j.status,
+                "template": j.template,
+                "created_at": j.created_at,
+                "href": (
+                    f"/jobs/{j.id}/report"
+                    if j.status == "completed"
+                    else (f"/jobs/{j.id}/plan" if j.status in {"planning", "awaiting_approval"} else f"/jobs/{j.id}")
+                ),
+            }
+        )
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -145,6 +191,8 @@ async def home(request: Request) -> Any:
             "ollama_up": ollama_available(),
             "model": settings.ollama_model,
             "pin_required": bool(settings.access_pin),
+            "templates": list_templates(),
+            "recent_jobs": recent,
         },
     )
 
@@ -161,7 +209,9 @@ async def health() -> dict[str, Any]:
 @app.post("/api/research")
 async def start_research(body: ResearchRequest) -> dict[str, Any]:
     _check_pin(body.pin)
-    job_id = _start_job_flow(body.ticker, body.mode, body.goal or "", body.collaborative)
+    job_id = _start_job_flow(
+        body.ticker, body.mode, body.goal or "", body.collaborative, template=body.template or "auto"
+    )
     job = job_store.get(job_id)
     assert job
     return {"job_id": job.id, "status": job.status, "collaborative": job.collaborative}
@@ -173,6 +223,7 @@ async def start_research_form(
     ticker: str = Form(...),
     mode: str = Form("deep"),
     goal: str = Form(""),
+    template: str = Form("auto"),
     collaborative: str | None = Form(None),
     pin: str = Form(""),
 ) -> Any:
@@ -187,12 +238,14 @@ async def start_research_form(
                 "ollama_up": ollama_available(),
                 "model": settings.ollama_model,
                 "pin_required": bool(settings.access_pin),
+                "templates": list_templates(),
+                "recent_jobs": [],
             },
             status_code=401,
         )
     # Checkbox omitted from POST when unchecked
     collab = (collaborative or "").lower() in {"on", "true", "1", "yes"}
-    job_id = _start_job_flow(ticker, mode, goal, collab)
+    job_id = _start_job_flow(ticker, mode, goal, collab, template=template or "auto")
     job = job_store.get(job_id)
     assert job
     if job.collaborative:
@@ -214,6 +267,7 @@ async def job_status(job_id: str) -> dict[str, Any]:
         "ticker": job.ticker,
         "mode": job.mode,
         "goal": job.goal,
+        "template": job.template,
         "collaborative": job.collaborative,
         "status": job.status,
         "stage": job.stage,
@@ -223,6 +277,8 @@ async def job_status(job_id: str) -> dict[str, Any]:
         "error": job.error,
         "has_plan": bool(job.plan),
         "has_report": bool(job.result and job.result.get("report_markdown")),
+        "thoughts": job.thoughts[-40:],
+        "thought_count": len(job.thoughts),
     }
 
 
@@ -278,6 +334,8 @@ async def approve_plan_api(job_id: str, body: ApproveRequest) -> dict[str, Any]:
         edits["goal"] = body.goal
     if body.sections is not None:
         edits["sections"] = body.sections
+    if body.assumptions is not None:
+        edits["assumptions"] = body.assumptions
     plan = apply_plan_edits(plan, edits or None)
     job_store.update(job_id, plan=plan.to_public_dict(), goal=plan.goal)
     threading.Thread(target=_run_job, args=(job.id,), kwargs={"use_plan_path": True}, daemon=True).start()
@@ -327,9 +385,44 @@ async def approve_plan_form(
             }
         )
 
+    def _pct_field(name: str) -> float | None:
+        raw = form.get(name)
+        if raw is None or str(raw).strip() == "":
+            return None
+        try:
+            # UI uses percent points (8 = 8%)
+            return float(str(raw)) / 100.0
+        except ValueError:
+            return None
+
+    years_raw = form.get("explicit_years")
+    try:
+        years = int(str(years_raw)) if years_raw not in (None, "") else None
+    except ValueError:
+        years = None
+
+    assumption_edits: dict[str, Any] = {"user_edited": True}
+    if years is not None:
+        assumption_edits["explicit_years"] = years
+    for scen in ("base", "bull", "bear"):
+        patch: dict[str, Any] = {}
+        for field, form_key in (
+            ("revenue_growth", f"{scen}_growth"),
+            ("fcf_margin", f"{scen}_fcf_margin"),
+            ("wacc", f"{scen}_wacc"),
+            ("terminal_growth", f"{scen}_terminal_growth"),
+        ):
+            val = _pct_field(form_key)
+            if val is not None:
+                patch[field] = val
+        if years is not None:
+            patch["explicit_years"] = years
+        if patch:
+            assumption_edits[scen] = patch
+
     plan = apply_plan_edits(
         ResearchPlan.model_validate(job.plan),
-        {"goal": goal, "sections": section_edits},
+        {"goal": goal, "sections": section_edits, "assumptions": assumption_edits},
     )
     job_store.update(job_id, plan=plan.to_public_dict(), goal=plan.goal)
     threading.Thread(target=_run_job, args=(job.id,), kwargs={"use_plan_path": True}, daemon=True).start()
@@ -378,6 +471,7 @@ async def job_report_page(request: Request, job_id: str) -> Any:
             "ticker": job.ticker,
             "mode": job.mode,
             "markdown": job.result.get("report_markdown") or "",
+            "charts": ((job.result.get("charts") or {}).get("charts") or []),
             "job_id": job.id,
         },
     )

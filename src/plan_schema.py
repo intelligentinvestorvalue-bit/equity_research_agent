@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from src.valuation import ValuationAssumptions, default_assumptions
+
 
 ToolName = Literal[
     "get_fundamentals",
@@ -13,6 +15,8 @@ ToolName = Literal[
     "fetch_10k",
     "summarize_item_1a",
     "summarize_item_7",
+    "run_dcf",
+    "search_web",
 ]
 
 
@@ -35,10 +39,12 @@ class ResearchPlan(BaseModel):
     ticker: str
     goal: str = ""
     mode: str = "deep"
+    template: str = "deep"
     sections: list[PlanSection]
     constraints: PlanConstraints = Field(default_factory=PlanConstraints)
     planner_mode: str = "template"  # template | ollama
     summary_markdown: str = ""
+    assumptions: ValuationAssumptions = Field(default_factory=default_assumptions)
 
     def enabled_sections(self) -> list[PlanSection]:
         return [s for s in self.sections if s.enabled]
@@ -56,6 +62,12 @@ def default_fast_sections() -> list[PlanSection]:
             notes="Revenue, FCF, shares, growth rates, ROIC, FCF yield, debt/equity",
         ),
         PlanSection(
+            id="valuation",
+            title="DCF valuation (base / bull / bear)",
+            tools=["run_dcf"],
+            notes="Intrinsic value from growth, FCF margin, and WACC assumptions",
+        ),
+        PlanSection(
             id="options",
             title="Put income screen",
             tools=["screen_puts"],
@@ -67,6 +79,13 @@ def default_fast_sections() -> list[PlanSection]:
 def default_deep_sections() -> list[PlanSection]:
     return [
         *default_fast_sections(),
+        PlanSection(
+            id="web_research",
+            title="News, analysts & market drivers",
+            tools=["search_web"],
+            notes="Street targets, recent news, sector/commodity drivers via web search + page fetch",
+            queries=[],
+        ),
         PlanSection(
             id="sec_fetch",
             title="SEC 10-K intake",
@@ -94,6 +113,7 @@ def plan_summary_markdown(plan: ResearchPlan) -> str:
         "",
         f"**Goal:** {plan.goal or 'Standard equity research draft'}",
         f"**Mode:** {plan.mode}",
+        f"**Template:** {plan.template}",
         f"**Planner:** {plan.planner_mode}",
         "",
         "## Sections",
@@ -109,12 +129,20 @@ def plan_summary_markdown(plan: ResearchPlan) -> str:
         if sec.queries:
             lines.append(f"   - Queries: {'; '.join(sec.queries)}")
         lines.append("")
+
+    a = plan.assumptions
     lines += [
+        "## Valuation assumptions",
+        f"- Explicit years: {a.explicit_years}",
+        f"- Base: growth {a.base.revenue_growth:.1%}, FCF margin {a.base.fcf_margin:.1%}, WACC {a.base.wacc:.1%}",
+        f"- Bull: growth {a.bull.revenue_growth:.1%}, FCF margin {a.bull.fcf_margin:.1%}, WACC {a.bull.wacc:.1%}",
+        f"- Bear: growth {a.bear.revenue_growth:.1%}, FCF margin {a.bear.fcf_margin:.1%}, WACC {a.bear.wacc:.1%}",
+        "",
         "## Constraints",
         f"- Max steps: {plan.constraints.max_steps}",
         f"- Max sources: {plan.constraints.max_sources}",
         "",
-        "_Edit or disable sections, then approve to run._",
+        "_Edit or disable sections / assumptions, then approve to run._",
         "",
     ]
     return "\n".join(lines)

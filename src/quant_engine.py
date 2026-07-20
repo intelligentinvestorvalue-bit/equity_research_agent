@@ -300,14 +300,26 @@ def fetch_put_opportunities(ticker: str, target_dte_low: int = 30, target_dte_hi
                 }
             )
 
+    from src.iv_store import iv_rank_bundle
+
+    iv_info = iv_rank_bundle(ticker, chain, float(spot or 0))
+    notes = ["Delta band approximated via % OTM when greeks are unavailable"]
+    notes.extend(iv_info.get("notes") or [])
+
     return {
         "ticker": ticker.upper(),
         "spot": spot,
         "expiration": selected_exp,
         "dte": selected_dte,
         "candidates": candidates[:25],
-        "iv_rank": None,  # requires historical IV archive; filled in later phases
-        "note": "Delta band approximated via % OTM when greeks are unavailable",
+        "current_iv": iv_info.get("current_iv"),
+        "iv_rank": iv_info.get("iv_rank"),
+        "iv_samples": iv_info.get("iv_samples"),
+        "iv_low": iv_info.get("iv_low"),
+        "iv_high": iv_info.get("iv_high"),
+        "hv_rank": iv_info.get("hv_rank"),
+        "hv_current": iv_info.get("hv_current"),
+        "note": "; ".join(notes),
     }
 
 

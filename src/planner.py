@@ -15,10 +15,9 @@ from src.plan_schema import (
     PlanConstraints,
     PlanSection,
     ResearchPlan,
-    default_deep_sections,
-    default_fast_sections,
     plan_summary_markdown,
 )
+from src.valuation import default_assumptions
 
 logger = logging.getLogger(__name__)
 
@@ -49,31 +48,65 @@ Allowed tools ONLY:
 - fetch_10k
 - summarize_item_1a
 - summarize_item_7
+- run_dcf
+- search_web
 
 Rules:
-- For mode "fast": only get_fundamentals and screen_puts (2 sections).
-- For mode "deep": include fetch_10k before summarize_item_1a / summarize_item_7.
-- Keep 2–6 sections. Prefer concrete notes tied to the user goal.
+- For mode "fast": get_fundamentals, run_dcf, and optionally screen_puts.
+- For mode "deep": include search_web; include fetch_10k before summarize_item_1a / summarize_item_7; include run_dcf after get_fundamentals.
+- Keep 2–8 sections. Prefer concrete notes tied to the user goal.
 """
 
 
-def build_template_plan(ticker: str, mode: str = "deep", goal: str = "") -> ResearchPlan:
+def build_template_plan(
+    ticker: str,
+    mode: str = "deep",
+    goal: str = "",
+    template: str = "auto",
+) -> ResearchPlan:
+    from src.plan_templates import (
+        default_goal_for_template,
+        resolve_template_id,
+        sections_for_template,
+    )
+
     ticker = ticker.upper().strip()
     mode = "fast" if mode == "fast" else "deep"
-    sections = default_fast_sections() if mode == "fast" else default_deep_sections()
-    if goal.strip():
-        # Attach goal hint to first qualitative-ish section
-        for sec in sections:
-            if sec.id in {"risks", "mda", "fundamentals"}:
-                sec.notes = f"{sec.notes}. Focus: {goal.strip()}"
-                break
+    tid = resolve_template_id(template, goal=goal, mode=mode)
+    # Fast mode forces fast template unless valuation/income explicitly chosen
+    if mode == "fast" and (template or "auto") == "auto":
+        tid = "fast"
+
+    company = None
+    assumptions = default_assumptions()
+    try:
+        from src.quant_engine import fetch_fundamentals
+        from src.valuation import assumptions_from_fundamentals
+
+        fund = fetch_fundamentals(ticker)
+        if not fund.get("error"):
+            assumptions = assumptions_from_fundamentals(fund)
+            company = fund.get("company_name")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not seed valuation assumptions for %s: %s", ticker, exc)
+
+    sections = sections_for_template(tid, ticker, company=company, goal=goal)
+    # Income/valuation collaborative plans should use deep execution mode for web/SEC tools
+    exec_mode = "fast" if tid == "fast" and mode == "fast" else ("deep" if tid in {"valuation", "deep", "income"} else mode)
+    if tid == "fast":
+        exec_mode = "fast"
+    elif tid in {"valuation", "deep", "income"}:
+        exec_mode = "deep"
+
     plan = ResearchPlan(
         ticker=ticker,
-        goal=goal.strip() or ("Quick fundamentals + put screen" if mode == "fast" else "Deep diligence: fundamentals, options, 10-K risks & MD&A"),
-        mode=mode,
+        goal=default_goal_for_template(tid, goal),
+        mode=exec_mode,
+        template=tid,
         sections=sections,
-        constraints=PlanConstraints(mode=mode),
+        constraints=PlanConstraints(mode=exec_mode),
         planner_mode="template",
+        assumptions=assumptions,
     )
     plan.summary_markdown = plan_summary_markdown(plan)
     return plan
@@ -122,6 +155,8 @@ _ALLOWED = {
     "fetch_10k",
     "summarize_item_1a",
     "summarize_item_7",
+    "run_dcf",
+    "search_web",
 }
 
 
@@ -174,40 +209,44 @@ def _coerce_plan(ticker: str, mode: str, goal: str, data: dict[str, Any]) -> Res
     return plan
 
 
-def generate_plan(ticker: str, mode: str = "deep", goal: str = "") -> ResearchPlan:
-    """Build a research plan.
-
-    Uses a deterministic template by default so the approve UI is instant.
-    Set OLLAMA_PLANNER=1 to let Llama refine the section list when responsive.
-    """
+def generate_plan(
+    ticker: str,
+    mode: str = "deep",
+    goal: str = "",
+    template: str = "auto",
+) -> ResearchPlan:
+    """Build a research plan from a goal-based template (Ollama optional refine)."""
     import os
 
     mode = "fast" if (mode or "").lower() in {"fast"} else "deep"
     ticker = ticker.upper().strip()
     goal = (goal or "").strip()
+    template = (template or "auto").strip().lower() or "auto"
 
-    if mode == "fast":
-        return build_template_plan(ticker, mode="fast", goal=goal)
+    built = build_template_plan(ticker, mode=mode, goal=goal, template=template)
 
-    template = build_template_plan(ticker, mode="deep", goal=goal)
+    # Optional Ollama refine only for generic deep/auto paths
     if os.getenv("OLLAMA_PLANNER", "").strip() not in {"1", "true", "yes"}:
-        return template
-
+        return built
+    if built.template in {"valuation", "income"}:
+        return built
     if not ollama_available():
-        return template
+        return built
 
     try:
-        data = _ollama_plan_json(ticker, mode, goal)
+        data = _ollama_plan_json(ticker, built.mode, goal or built.goal)
         if data:
-            return _coerce_plan(ticker, mode, goal, data)
+            coerced = _coerce_plan(ticker, built.mode, goal or built.goal, data)
+            coerced.template = built.template
+            coerced.assumptions = built.assumptions
+            return coerced
     except Exception as exc:  # noqa: BLE001
         logger.warning("Ollama planner failed (%s); using template", exc)
 
-    return template
-
+    return built
 
 def apply_plan_edits(plan: ResearchPlan, edits: dict[str, Any] | None) -> ResearchPlan:
-    """Apply UI edits: goal, enabled flags, notes by section id."""
+    """Apply UI edits: goal, enabled flags, notes, valuation assumptions."""
     if not edits:
         return plan
     data = plan.model_dump()
@@ -229,6 +268,20 @@ def apply_plan_edits(plan: ResearchPlan, edits: dict[str, Any] | None) -> Resear
             if "title" in se and se["title"]:
                 by_id[sid]["title"] = str(se["title"])[:80]
         data["sections"] = list(by_id.values())
+
+    raw_assump = edits.get("assumptions")
+    if isinstance(raw_assump, dict):
+        from src.valuation import ValuationAssumptions
+
+        current = data.get("assumptions") or {}
+        # Patch nested scenario fields from flat or nested payload
+        patched = {**current, **{k: v for k, v in raw_assump.items() if k not in {"base", "bull", "bear"}}}
+        for scen in ("base", "bull", "bear"):
+            if scen in raw_assump and isinstance(raw_assump[scen], dict):
+                patched[scen] = {**(current.get(scen) or {}), **raw_assump[scen]}
+        patched["user_edited"] = True
+        data["assumptions"] = ValuationAssumptions.model_validate(patched).model_dump()
+
     updated = ResearchPlan.model_validate(data)
     updated.summary_markdown = plan_summary_markdown(updated)
     return updated

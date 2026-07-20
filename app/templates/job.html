@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <main class="wrap">
+  <main class="wrap wide">
     <header>
       <p class="brand">{{ ticker }}</p>
       <p class="sub">Mode: {{ mode }} · Job {{ job_id[:8] }}…</p>
@@ -19,6 +19,11 @@
       <div class="bar"><div id="fill"></div></div>
     </div>
 
+    <section class="think-panel" aria-label="Thinking">
+      <p class="scenario-label">Thinking</p>
+      <ul id="thoughts" class="thought-list"></ul>
+    </section>
+
     <p><a class="link" href="/">← New research</a></p>
   </main>
 
@@ -27,11 +32,34 @@
     const stateEl = document.getElementById("state");
     const detailEl = document.getElementById("detail");
     const fillEl = document.getElementById("fill");
+    const thoughtsEl = document.getElementById("thoughts");
+    let lastThoughtCount = 0;
 
     const stageWidth = {
       queued: "8%", starting: "12%", plan: "18%", planning: "20%",
-      quant: "40%", sec: "60%", nlp: "85%", done: "100%", error: "100%"
+      quant: "28%", valuation: "38%", web: "50%", think: "62%",
+      critique: "72%", charts: "82%", sec: "70%", nlp: "88%", done: "100%", error: "100%"
     };
+
+    function renderThoughts(thoughts) {
+      if (!thoughts || thoughts.length === lastThoughtCount) return;
+      lastThoughtCount = thoughts.length;
+      thoughtsEl.innerHTML = "";
+      thoughts.forEach((t) => {
+        const li = document.createElement("li");
+        li.className = `thought thought-${t.kind || "think"}`;
+        const kind = document.createElement("span");
+        kind.className = "thought-kind";
+        kind.textContent = t.kind || "think";
+        const msg = document.createElement("span");
+        msg.className = "thought-msg";
+        msg.textContent = t.message || "";
+        li.appendChild(kind);
+        li.appendChild(msg);
+        thoughtsEl.appendChild(li);
+      });
+      thoughtsEl.scrollTop = thoughtsEl.scrollHeight;
+    }
 
     async function tick() {
       try {
@@ -40,6 +68,7 @@
         stateEl.textContent = `${data.status} · ${data.stage}`;
         detailEl.textContent = data.message || "";
         fillEl.style.width = stageWidth[data.stage] || "20%";
+        renderThoughts(data.thoughts || []);
         if (data.status === "completed") {
           window.location.href = `/jobs/${jobId}/report`;
           return;
@@ -52,7 +81,7 @@
       } catch (e) {
         detailEl.textContent = "Waiting for server…";
       }
-      setTimeout(tick, 1500);
+      setTimeout(tick, 1200);
     }
     tick();
   </script>

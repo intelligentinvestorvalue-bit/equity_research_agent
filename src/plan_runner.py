@@ -7,11 +7,17 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from src.chart_engine import charts_markdown, generate_research_charts
 from src.config import OUTPUT_DIR
+from src.critique import critique_report
 from src.evidence import EvidenceStore
 from src.plan_schema import ResearchPlan
 from src.quant_engine import format_fundamentals_markdown
+from src.research_loop import run_research_loop
+from src.thinking import ThinkCb, _noop_think
 from src.tools import TOOL_REGISTRY, ToolContext
+from src.valuation import format_valuation_markdown
+from src.web_engine import format_web_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +44,7 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
         "",
         f"**Goal:** {plan.goal}",
         f"**Mode:** {plan.mode}",
+        f"**Template:** {getattr(plan, 'template', '')}",
         f"**Planner:** {plan.planner_mode}",
         "",
         "## Plan executed",
@@ -57,11 +64,60 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
         lines.append(fund_md.rstrip())
         lines.append("")
 
+    # Charts inserted after fundamentals / before valuation when available
+    charts_md = getattr(ctx, "_charts_markdown", "") or ""
+    if charts_md:
+        lines.append(charts_md.rstrip())
+        lines.append("")
+
+    if ctx.valuation is not None:
+        val_md = format_valuation_markdown(ctx.valuation)
+        # Attach citation if present
+        cite_bit = cite(f"{plan.ticker} DCF valuation")
+        if cite_bit:
+            val_md = val_md.replace(
+                "## DCF valuation (base / bull / bear)",
+                "## DCF valuation (base / bull / bear)" + cite_bit,
+                1,
+            )
+        lines.append(val_md.rstrip())
+        lines.append("")
+
+    if ctx.web is not None:
+        # Prefer per-section reports when multiple web passes ran
+        if ctx.web_reports:
+            for wr in ctx.web_reports:
+                sid = wr.get("section_id") or "web"
+                lines.append(f"## Web research — {sid}")
+                lines.append("")
+                body = wr.get("report_markdown") or format_web_markdown(
+                    wr, wr.get("summary_markdown") or ""
+                )
+                # Drop duplicate top heading from format_web_markdown
+                body = body.replace("## Web / news research\n\n", "", 1)
+                lines.append(body.rstrip())
+                lines.append("")
+        else:
+            web_md = ctx.web.get("report_markdown") or format_web_markdown(
+                ctx.web, (ctx.web_summary or {}).get("markdown") or ""
+            )
+            lines.append(web_md.rstrip())
+            lines.append("")
+
     if ctx.options is not None:
+        def _pct(v: Any) -> str:
+            try:
+                return f"{float(v) * 100:.1f}%" if v is not None else "—"
+            except (TypeError, ValueError):
+                return "—"
+
         lines += [
             "## Put opportunities (heuristic)" + cite(f"{plan.ticker} put screen"),
             f"- Expiration: {opts.get('expiration')} (DTE {opts.get('dte')})",
             f"- Candidates: {len(opts.get('candidates') or [])}",
+            f"- ATM IV (est.): {_pct(opts.get('current_iv'))}",
+            f"- IV rank: {_pct(opts.get('iv_rank'))} ({opts.get('iv_samples') or 0} local samples)",
+            f"- HV rank (20d realized): {_pct(opts.get('hv_rank'))}",
             "",
         ]
         for c in (opts.get("candidates") or [])[:10]:
@@ -101,6 +157,19 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
             lines.append(f"- {err}")
         lines.append("")
 
+    loop = getattr(ctx, "loop_result", None) or {}
+    steps = loop.get("steps") or []
+    if steps:
+        lines += ["## Research loop (think → act)", ""]
+        for i, step in enumerate(steps, start=1):
+            lines.append(f"{i}. _{step.get('mode', 'heuristic')}_ — {step.get('thought', '')}")
+            for a in step.get("actions") or []:
+                lines.append(
+                    f"   - act `{a.get('tool')}`: {a.get('reason') or ''} "
+                    f"{('· ' + ', '.join(a.get('queries') or [])) if a.get('queries') else ''}"
+                )
+        lines.append("")
+
     lines.append(ctx.evidence.citations_markdown())
     return "\n".join(lines)
 
@@ -108,33 +177,62 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
 def run_planned_research(
     plan: ResearchPlan,
     progress: ProgressCb | None = None,
+    think: ThinkCb | None = None,
 ) -> dict[str, Any]:
     progress = progress or _noop
+    think = think or _noop_think
     ticker = plan.ticker.upper().strip()
     started = datetime.now(timezone.utc).isoformat()
     evidence = EvidenceStore()
-    ctx = ToolContext(ticker=ticker, evidence=evidence, progress=progress)
+    plan_queries: list[str] = []
+    for sec in plan.enabled_sections():
+        plan_queries.extend(sec.queries or [])
+    ctx = ToolContext(
+        ticker=ticker,
+        evidence=evidence,
+        progress=progress,
+        plan_assumptions=plan.assumptions.model_dump() if plan.assumptions else None,
+        plan_goal=plan.goal or "",
+        plan_queries=plan_queries,
+    )
 
-    # Deduplicate tool calls while preserving first-seen order across enabled sections
-    tools_ordered: list[str] = []
+    think("think", f"Executing approved plan for {ticker} ({plan.template}).")
+
+    # Run tools section-by-section so search_web can use per-section queries
     seen: set[str] = set()
     for sec in plan.enabled_sections():
         progress("plan", f"Section: {sec.title}")
+        think("act", f"Running section `{sec.id}`: {sec.title}")
+        ctx.active_section_id = sec.id
+        ctx.active_section_queries = list(sec.queries or [])
         for name in sec.tools:
-            if name not in seen:
+            # Dedupe non-web tools; allow search_web multiple times
+            if name != "search_web" and name in seen:
+                continue
+            if name != "search_web":
                 seen.add(name)
-                tools_ordered.append(name)
+            fn = TOOL_REGISTRY.get(name)
+            if not fn:
+                ctx.errors.append(f"unknown tool: {name}")
+                continue
+            try:
+                fn(ctx)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Tool %s failed", name)
+                ctx.errors.append(f"{name}: {exc}")
+                think("gap", f"Tool `{name}` failed: {exc}")
+    ctx.active_section_id = None
+    ctx.active_section_queries = []
 
-    for name in tools_ordered:
-        fn = TOOL_REGISTRY.get(name)
-        if not fn:
-            ctx.errors.append(f"unknown tool: {name}")
-            continue
-        try:
-            fn(ctx)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Tool %s failed", name)
-            ctx.errors.append(f"{name}: {exc}")
+    # Iterative gap-fill (Gemini-style think → act)
+    loop_result = run_research_loop(plan, ctx, progress=progress, think=think)
+    ctx.loop_result = loop_result  # type: ignore[attr-defined]
+
+    progress("charts", "Rendering charts")
+    think("act", "Building revenue/FCF and DCF charts.")
+    charts_meta = generate_research_charts(ticker, ctx.fundamentals, ctx.valuation)
+    ctx._charts_markdown = charts_markdown(charts_meta)  # type: ignore[attr-defined]
+    think("think", f"Generated {len(charts_meta.get('charts') or [])} chart(s).")
 
     quant = {
         "fundamentals": ctx.fundamentals,
@@ -149,6 +247,17 @@ def run_planned_research(
                 "generated_at": started,
                 "plan": plan.to_public_dict(),
                 "quant": quant,
+                "valuation": ctx.valuation,
+                "loop": loop_result,
+                "charts": charts_meta,
+                "web": {
+                    "queries": (ctx.web or {}).get("queries"),
+                    "hit_count": (ctx.web or {}).get("hit_count"),
+                    "fetched_ok": (ctx.web or {}).get("fetched_ok"),
+                    "hits": (ctx.web or {}).get("hits"),
+                }
+                if ctx.web
+                else None,
             },
             indent=2,
             default=str,
@@ -157,8 +266,28 @@ def run_planned_research(
     )
 
     md = _format_report(plan, ctx)
+    progress("critique", "Self-critique pass")
+    think("think", "Reviewing draft for unsupported claims and fragile assumptions.")
+    critique = critique_report(md, plan, ctx)
+    md = critique.get("final_markdown") or md
+    think(
+        "done" if not critique.get("issues") else "gap",
+        f"Self-critique ({critique.get('mode')}): {critique.get('issue_count', 0)} issue(s) flagged.",
+    )
     report_path = OUTPUT_DIR / f"{ticker}_analysis_report.md"
     report_path.write_text(md, encoding="utf-8")
+
+    # Persist critique alongside financials payload
+    try:
+        payload = json.loads(financials_path.read_text(encoding="utf-8"))
+        payload["critique"] = {
+            "mode": critique.get("mode"),
+            "issues": critique.get("issues"),
+            "issue_count": critique.get("issue_count"),
+        }
+        financials_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        logger.debug("Could not append critique to financials JSON", exc_info=True)
 
     sections_meta = None
     if ctx.sections is not None:
@@ -179,12 +308,29 @@ def run_planned_research(
         }
 
     progress("done", "Planned research complete")
+    think("done", "Research run finished.")
     return {
         "ticker": ticker,
         "mode": plan.mode,
         "generated_at": started,
         "plan": plan.to_public_dict(),
         "quant": quant,
+        "valuation": ctx.valuation,
+        "loop": loop_result,
+        "critique": {
+            "mode": critique.get("mode"),
+            "issues": critique.get("issues"),
+            "issue_count": critique.get("issue_count"),
+        },
+        "charts": charts_meta,
+        "web": {
+            "queries": (ctx.web or {}).get("queries"),
+            "hit_count": (ctx.web or {}).get("hit_count"),
+            "fetched_ok": (ctx.web or {}).get("fetched_ok"),
+            "summary_mode": (ctx.web_summary or {}).get("mode"),
+        }
+        if ctx.web
+        else None,
         "financials_path": str(financials_path),
         "sections": sections_meta,
         "nlp": nlp_out,

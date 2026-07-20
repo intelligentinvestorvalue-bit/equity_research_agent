@@ -10,7 +10,7 @@
   <main class="wrap">
     <header>
       <p class="brand">Equity Research Agent</p>
-      <p class="sub">Local · plan → approve → tools · Llama via Ollama</p>
+      <p class="sub">Local · plan templates → approve → tools · Llama via Ollama</p>
     </header>
 
     {% if error %}
@@ -24,21 +24,29 @@
     <form class="card-form" method="post" action="/research">
       <label for="ticker">Ticker</label>
       <input id="ticker" name="ticker" type="text" inputmode="latin" autocomplete="off"
-             placeholder="AAPL" required maxlength="12" />
+             placeholder="UUUU" required maxlength="12" />
+
+      <label for="template">Research template</label>
+      <select id="template" name="template">
+        {% for t in templates %}
+        <option value="{{ t.id }}" {% if t.id == 'auto' %}selected{% endif %}>{{ t.label }}</option>
+        {% endfor %}
+      </select>
+      <p class="fine" id="template-hint">Auto picks valuation / income / deep from your goal text.</p>
 
       <label for="goal">Research goal (optional)</label>
       <input id="goal" name="goal" type="text" maxlength="240"
-             placeholder="e.g. covered-call income + key 10-K risks" />
+             placeholder="e.g. intrinsic value base/bull/bear; uranium & rare earth drivers" />
 
       <label for="mode">Mode</label>
       <select id="mode" name="mode">
-        <option value="fast">Fast — fundamentals + options (runs immediately)</option>
-        <option value="deep" selected>Deep — plan, approve, then SEC + LLM</option>
+        <option value="fast">Fast — skip collaborative review when template is Fast</option>
+        <option value="deep" selected>Deep — plan &amp; approve (recommended)</option>
       </select>
 
       <label class="check">
         <input type="checkbox" name="collaborative" value="on" checked />
-        Review plan before running (deep mode)
+        Review plan before running
       </label>
 
       {% if pin_required %}
@@ -49,7 +57,35 @@
       <button type="submit">Start research</button>
     </form>
 
-    <p class="fine">Not investment advice. Reports stay on this machine under <code>output/</code>.</p>
+    {% if recent_jobs %}
+    <section class="recent-jobs">
+      <p class="scenario-label">Recent jobs</p>
+      <ul class="recent-list">
+        {% for j in recent_jobs %}
+        <li>
+          <a class="link" href="{{ j.href }}">{{ j.ticker }}</a>
+          <span class="muted">{{ j.status }} · {{ j.template }} · {{ j.created_at[:16] }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <p class="fine">Not investment advice. Reports stay on this machine under <code>output/</code>. Jobs persist in <code>data/research.db</code>.</p>
   </main>
+  <script>
+    const hints = {
+      {% for t in templates %}
+      "{{ t.id }}": {{ t.description|tojson }},
+      {% endfor %}
+    };
+    const sel = document.getElementById("template");
+    const hint = document.getElementById("template-hint");
+    function syncHint() {
+      hint.textContent = hints[sel.value] || "";
+    }
+    sel.addEventListener("change", syncHint);
+    syncHint();
+  </script>
 </body>
 </html>
