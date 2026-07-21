@@ -28,7 +28,7 @@ Return ONLY JSON:
   ]
 }}
 
-Allowed tools: search_web, get_fundamentals, run_dcf, run_ev_ebitda, get_peer_comps, get_earnings, fetch_10k, fetch_recent_filings, analyze_drivers, draft_memo_sections, screen_puts
+Allowed tools: search_web, get_fundamentals, run_dcf, run_ev_ebitda, get_peer_comps, get_earnings, fetch_10k, summarize_item_1, fetch_recent_filings, analyze_drivers, draft_memo_sections, screen_puts
 Max 2 actions. Prefer search_web for missing analyst targets or drivers.
 If coverage is adequate, set done=true and actions=[].
 
@@ -66,6 +66,7 @@ def _state_snapshot(plan: ResearchPlan, ctx: ToolContext) -> dict[str, Any]:
         "web_queries": (web.get("queries") or [])[:6],
         "has_sec": bool(ctx.sections),
         "sec_ok": bool((ctx.sections or {}).get("extraction_ok")) if ctx.sections else None,
+        "has_business": bool((ctx.nlp_business or {}).get("markdown")),
         "evidence_count": len(ctx.evidence.items()),
         "errors": (ctx.errors or [])[:8],
     }

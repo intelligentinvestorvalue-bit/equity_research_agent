@@ -14,6 +14,7 @@ ToolName = Literal[
     "get_fundamentals",
     "screen_puts",
     "fetch_10k",
+    "summarize_item_1",
     "summarize_item_1a",
     "summarize_item_7",
     "run_dcf",
@@ -98,7 +99,13 @@ def default_deep_sections() -> list[PlanSection]:
             id="sec_fetch",
             title="SEC 10-K intake",
             tools=["fetch_10k"],
-            notes="Latest 10-K; extract Item 1A and Item 7",
+            notes="Latest 10-K; extract Item 1 (Business), Item 1A, and Item 7",
+        ),
+        PlanSection(
+            id="business",
+            title="Business overview (Item 1)",
+            tools=["summarize_item_1"],
+            notes="Company setup from 10-K Item 1 Business",
         ),
         PlanSection(
             id="risks",

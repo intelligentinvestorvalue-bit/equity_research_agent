@@ -11,7 +11,7 @@ from src.nlp_engine import ollama_available, summarize_text
 logger = logging.getLogger(__name__)
 
 MEMO_PROMPT = """You are drafting sections of an equity research memo (NOT investment advice; no buy/sell rating).
-Use ONLY the facts in the context. If something is unknown, say so. Be concise.
+Use ONLY the facts in the context. If something is unknown, say so.
 
 Write markdown with these exact headings (##):
 ## Executive summary
@@ -21,6 +21,9 @@ Write markdown with these exact headings (##):
 ## Falsification triggers
 ## Source quality & limitations
 
+Under Company setup & business model: write a thorough overview (ideally 400–800 words) grounded in the
+10-K Item 1 Business summary when provided — cover what the company does, products/segments, customers,
+competitive position, geography/operations, and strategic focus. Do not invent details absent from context.
 Under Variant perception include short bull / bear / consensus framing.
 Under Falsification triggers use a short bullet list of invalidation rules.
 Under Source quality & limitations note free-data limits (yfinance/SEC/web) and that figures may be incomplete.
@@ -53,6 +56,7 @@ def _build_context(
     multiples: dict[str, Any] | None,
     peers: dict[str, Any] | None,
     web: dict[str, Any] | None,
+    nlp_business: dict[str, Any] | None,
     nlp_1a: dict[str, Any] | None,
     nlp_7: dict[str, Any] | None,
     earnings: dict[str, Any] | None,
@@ -96,6 +100,8 @@ def _build_context(
     if filings_extra:
         for f in (filings_extra.get("recent") or [])[:8]:
             parts.append(f"Filing {f.get('form')} {f.get('filing_date')}: {f.get('description') or f.get('accession')}")
+    if nlp_business:
+        parts.append("Item 1 Business summary (primary for Company setup):\n" + ((nlp_business.get("markdown") or "")[:6000]))
     if nlp_1a:
         parts.append("Item 1A summary:\n" + ((nlp_1a.get("markdown") or "")[:1800]))
     if nlp_7:
@@ -117,6 +123,7 @@ def _rule_memo(
     earnings: dict[str, Any] | None,
     filings_extra: dict[str, Any] | None,
     goal: str = "",
+    nlp_business: dict[str, Any] | None = None,
 ) -> str:
     fund = fund or {}
     snap = fund.get("snapshot") or {}
@@ -148,10 +155,22 @@ def _rule_memo(
         "",
         "## Company setup & business model",
         "",
-        f"Sector/industry: {snap.get('sector') or '—'} / {snap.get('industry') or '—'}. "
-        "Detail the competitive position, revenue mix, and strategic pivots from SEC MD&A and web sources "
-        "in adjacent report tabs. This skeleton does not invent segment KPIs.",
-        "",
+    ]
+    biz_md = ((nlp_business or {}).get("markdown") or "").strip()
+    if biz_md:
+        # Drop a redundant top ### heading if present; keep subsections
+        biz_body = re.sub(r"^###\s+Item 1[^\n]*\n+", "", biz_md, count=1, flags=re.I).strip()
+        lines.append(biz_body)
+        lines.append("")
+        lines.append("_Source: latest 10-K Item 1 (Business), summarized locally._")
+        lines.append("")
+    else:
+        lines += [
+            f"Sector/industry: {snap.get('sector') or '—'} / {snap.get('industry') or '—'}. "
+            "Run `summarize_item_1` on the latest 10-K to populate a full business overview from Item 1.",
+            "",
+        ]
+    lines += [
         "## Variant perception",
         "",
         f"- **Consensus frame (sparse):** recommendation={snap.get('recommendation') or '—'}, "
@@ -295,6 +314,7 @@ def draft_memo_sections(
     multiples: dict[str, Any] | None = None,
     peers: dict[str, Any] | None = None,
     web: dict[str, Any] | None = None,
+    nlp_business: dict[str, Any] | None = None,
     nlp_1a: dict[str, Any] | None = None,
     nlp_7: dict[str, Any] | None = None,
     earnings: dict[str, Any] | None = None,
@@ -308,6 +328,7 @@ def draft_memo_sections(
         multiples,
         peers,
         web,
+        nlp_business,
         nlp_1a,
         nlp_7,
         earnings,
@@ -324,12 +345,32 @@ def draft_memo_sections(
             # Ensure required headings exist
             if "## Executive summary" not in body:
                 body = ""
+            # Prefer the dedicated Item 1 summary for Company setup when Ollama stays thin
+            elif nlp_business and (nlp_business.get("markdown") or "").strip():
+                biz = (nlp_business.get("markdown") or "").strip()
+                biz_body = re.sub(r"^###\s+Item 1[^\n]*\n+", "", biz, count=1, flags=re.I).strip()
+                body = _replace_section(
+                    body,
+                    "## Company setup & business model",
+                    "## Company setup & business model\n\n"
+                    + biz_body
+                    + "\n\n_Source: latest 10-K Item 1 (Business), summarized locally._\n",
+                )
         except Exception as exc:  # noqa: BLE001
             logger.warning("memo ollama failed: %s", exc)
             body = ""
 
     if not body:
-        body = _rule_memo(ticker, fund, multiples, peers, earnings, filings_extra, goal=goal)
+        body = _rule_memo(
+            ticker,
+            fund,
+            multiples,
+            peers,
+            earnings,
+            filings_extra,
+            goal=goal,
+            nlp_business=nlp_business,
+        )
         mode = "rules"
 
     proxy_rows = _extract_proxy_rows(web, ticker)
@@ -344,3 +385,14 @@ def draft_memo_sections(
         "proxy_rows": proxy_rows,
         "ok": True,
     }
+
+
+def _replace_section(markdown: str, heading: str, replacement: str) -> str:
+    """Replace a ## section through the next ## heading (or EOF)."""
+    pattern = re.compile(
+        rf"(^{re.escape(heading)}\s*\n)(.*?)(?=^## |\Z)",
+        re.M | re.S,
+    )
+    if not pattern.search(markdown):
+        return markdown.rstrip() + "\n\n" + replacement.strip() + "\n"
+    return pattern.sub(replacement.rstrip() + "\n\n", markdown, count=1)

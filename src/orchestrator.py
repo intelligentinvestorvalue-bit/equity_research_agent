@@ -95,19 +95,27 @@ def run_research(
         sec_engine.save_section_blocks(sections)
         result["sections"] = {
             "meta": sections.get("meta"),
+            "item_1_chars": sections.get("item_1_chars"),
             "item_1a_chars": sections.get("item_1a_chars"),
             "item_7_chars": sections.get("item_7_chars"),
             "extraction_ok": sections.get("extraction_ok"),
         }
     except Exception as exc:  # noqa: BLE001
         logger.exception("SEC failed for %s", ticker)
-        sections = {"ticker": ticker, "item_1a": None, "item_7": None, "error": str(exc)}
+        sections = {
+            "ticker": ticker,
+            "item_1": None,
+            "item_1a": None,
+            "item_7": None,
+            "error": str(exc),
+        }
         result["sections"] = {"error": str(exc), "extraction_ok": False}
 
     progress("nlp", "Running local LLM / fallback summarizer")
     nlp = nlp_engine.run_nlp(sections)
     result["nlp"] = {
         "ollama_up": nlp.get("ollama_up"),
+        "business_mode": nlp.get("business", {}).get("mode"),
         "item_1a_mode": nlp.get("item_1a", {}).get("mode"),
         "item_7_mode": nlp.get("item_7", {}).get("mode"),
     }
@@ -172,6 +180,7 @@ def _format_deep_report(
         "",
         "## SEC filing",
         f"- Extraction OK: {(sections_meta or {}).get('extraction_ok')}",
+        f"- Item 1 chars: {(sections_meta or {}).get('item_1_chars')}",
         f"- Item 1A chars: {(sections_meta or {}).get('item_1a_chars')}",
         f"- Item 7 chars: {(sections_meta or {}).get('item_7_chars')}",
         f"- Meta: {(sections_meta or {}).get('meta')}",

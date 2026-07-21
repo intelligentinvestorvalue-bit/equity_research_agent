@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -184,14 +185,38 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
         lines += [
             "## SEC filing" + cite(f"{plan.ticker} 10-K"),
             f"- Extraction OK: {ctx.sections.get('extraction_ok')}",
+            f"- Item 1 chars: {ctx.sections.get('item_1_chars')}",
             f"- Item 1A chars: {ctx.sections.get('item_1a_chars')}",
             f"- Item 7 chars: {ctx.sections.get('item_7_chars')}",
             f"- Meta: {meta}",
             "",
         ]
 
-    if ctx.nlp_1a or ctx.nlp_7:
+    # Standalone business overview when memo did not run (or as qualitative companion)
+    if ctx.nlp_business and not (ctx.memo and ctx.memo.get("markdown")):
+        biz = (ctx.nlp_business.get("markdown") or "").strip()
+        if biz:
+            lines += [
+                "## Company setup & business model",
+                "",
+                re.sub(r"^###\s+Item 1[^\n]*\n+", "", biz, count=1, flags=re.I).strip(),
+                "",
+                "_Source: latest 10-K Item 1 (Business), summarized locally._",
+                "",
+            ]
+
+    if ctx.nlp_business or ctx.nlp_1a or ctx.nlp_7:
         lines += ["## Qualitative analysis (local LLM)", ""]
+        if ctx.nlp_business and (ctx.memo and ctx.memo.get("markdown")):
+            # Already embedded in Company setup; still keep a short pointer
+            lines.append(
+                f"_Item 1 Business summary mode: {(ctx.nlp_business or {}).get('mode')} "
+                f"(see Company setup & business model)._"
+            )
+            lines.append("")
+        elif ctx.nlp_business:
+            lines.append(ctx.nlp_business.get("markdown") or "")
+            lines.append("")
         if ctx.nlp_1a:
             lines.append(ctx.nlp_1a.get("markdown") or "")
             lines.append("")
@@ -360,6 +385,7 @@ def run_planned_research(
     if ctx.sections is not None:
         sections_meta = {
             "meta": ctx.sections.get("meta"),
+            "item_1_chars": ctx.sections.get("item_1_chars"),
             "item_1a_chars": ctx.sections.get("item_1a_chars"),
             "item_7_chars": ctx.sections.get("item_7_chars"),
             "extraction_ok": ctx.sections.get("extraction_ok"),
@@ -367,8 +393,9 @@ def run_planned_research(
         }
 
     nlp_out = None
-    if ctx.nlp_1a or ctx.nlp_7:
+    if ctx.nlp_business or ctx.nlp_1a or ctx.nlp_7:
         nlp_out = {
+            "business_mode": (ctx.nlp_business or {}).get("mode"),
             "item_1a_mode": (ctx.nlp_1a or {}).get("mode"),
             "item_7_mode": (ctx.nlp_7 or {}).get("mode"),
             "ollama_up": nlp_engine_flag(),

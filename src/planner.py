@@ -46,6 +46,7 @@ Allowed tools ONLY:
 - get_fundamentals
 - screen_puts
 - fetch_10k
+- summarize_item_1
 - summarize_item_1a
 - summarize_item_7
 - run_dcf
@@ -53,7 +54,7 @@ Allowed tools ONLY:
 
 Rules:
 - For mode "fast": get_fundamentals, run_dcf, and optionally screen_puts.
-- For mode "deep": include search_web; include fetch_10k before summarize_item_1a / summarize_item_7; include run_dcf after get_fundamentals.
+- For mode "deep": include search_web; include fetch_10k before summarize_item_1 / summarize_item_1a / summarize_item_7; include run_dcf after get_fundamentals.
 - Keep 2–8 sections. Prefer concrete notes tied to the user goal.
 """
 
@@ -161,6 +162,7 @@ _ALLOWED = {
     "get_fundamentals",
     "screen_puts",
     "fetch_10k",
+    "summarize_item_1",
     "summarize_item_1a",
     "summarize_item_7",
     "run_dcf",
@@ -199,7 +201,9 @@ def _coerce_plan(ticker: str, mode: str, goal: str, data: dict[str, Any]) -> Res
 
     # Deep mode: ensure fetch_10k before summarize tools if those are present
     tool_set = {t for s in sections for t in s.tools}
-    if mode != "fast" and ({"summarize_item_1a", "summarize_item_7"} & tool_set) and "fetch_10k" not in tool_set:
+    if mode != "fast" and (
+        {"summarize_item_1", "summarize_item_1a", "summarize_item_7"} & tool_set
+    ) and "fetch_10k" not in tool_set:
         sections.insert(
             0,
             PlanSection(

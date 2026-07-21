@@ -13,38 +13,77 @@ logger = logging.getLogger(__name__)
 
 
 SECTION_PATTERNS = {
+    # Item 1 Business — must not match Item 1A; allow spaced letters (HTML artifacts)
+    "item_1": [
+        re.compile(r"(?m)^\s*item\s*1(?![a-z])\.?\s+b\s*u\s*s\s*i\s*n\s*e\s*s\s*s\b", re.I),
+        re.compile(r"(?m)^\s*item\s*1(?![a-z])\.?\s+description\s+of\s+business\b", re.I),
+        re.compile(r"(?m)^\s*item\s*1\s*[–\-—]\s*b\s*u\s*s\s*i\s*n\s*e\s*s\s*s\b", re.I),
+        # Fallback without line anchor (some filings wrap oddly)
+        re.compile(r"item\s*1(?![a-z])\.?\s+b\s*u\s*s\s*i\s*n\s*e\s*s\s*s\b", re.I),
+        re.compile(r"item\s*1(?![a-z])\.?\s+description\s+of\s+business\b", re.I),
+    ],
     "item_1a": [
-        re.compile(r"item\s*1a\.?\s*risk\s*factors", re.I),
-        re.compile(r"item\s*1a\s*[–\-—]?\s*risk\s*factors", re.I),
+        re.compile(r"(?m)^\s*item\s*1a\.?\s*r\s*i\s*s\s*k\s*f\s*a\s*c\s*t\s*o\s*r\s*s", re.I),
+        re.compile(r"item\s*1a\.?\s*r\s*i\s*s\s*k\s*f\s*a\s*c\s*t\s*o\s*r\s*s", re.I),
     ],
     "item_7": [
+        re.compile(r"(?m)^\s*item\s*7\.?\s*management.?s\s*discussion", re.I),
         re.compile(r"item\s*7\.?\s*management.?s\s*discussion", re.I),
         re.compile(r"item\s*7\s*[–\-—]?\s*management", re.I),
     ],
 }
 
-NEXT_ITEM = re.compile(r"item\s*\d{1,2}[a-z]?\.?\s", re.I)
+NEXT_ITEM = re.compile(r"(?m)^\s*item\s*\d{1,2}[a-z]?\.?\s", re.I)
+ITEM_1A_BOUNDARY = re.compile(r"(?m)^\s*item\s*1a\.?\s", re.I)
 
 
-def _extract_section(text: str, patterns: list[re.Pattern[str]]) -> str | None:
-    start = None
+def _extract_section(
+    text: str,
+    patterns: list[re.Pattern[str]],
+    *,
+    max_chars: int = 50_000,
+    stop_at: re.Pattern[str] | None = None,
+) -> str | None:
+    """Extract a 10-K section, preferring real body headers over TOC / cross-refs."""
+    matches: list[re.Match[str]] = []
     for pat in patterns:
-        m = pat.search(text)
-        if m:
-            start = m.start()
-            break
-    if start is None:
+        matches.extend(pat.finditer(text))
+    if not matches:
         return None
-    rest = text[start:]
-    # skip the header line, find next Item
-    after_header = rest.split("\n", 1)[-1]
-    nxt = NEXT_ITEM.search(after_header[200:] if len(after_header) > 200 else after_header)
-    # search from a small offset to avoid matching the same item header
-    search_from = 100
-    nxt = NEXT_ITEM.search(after_header[search_from:])
-    if nxt:
-        return after_header[search_from : search_from + nxt.start()].strip()
-    return after_header[:50_000].strip()
+
+    by_start = {m.start(): m for m in matches}
+    candidates: list[tuple[int, str, bool]] = []
+
+    for start, m in sorted(by_start.items()):
+        body_region = text[m.end() :]
+        search_from = min(80, max(0, len(body_region) // 20))
+        end_rel: int | None = None
+        if stop_at is not None:
+            m_stop = stop_at.search(body_region[search_from:])
+            if m_stop:
+                end_rel = search_from + m_stop.start()
+        if end_rel is None:
+            nxt = NEXT_ITEM.search(body_region[search_from:])
+            if nxt:
+                end_rel = search_from + nxt.start()
+        chunk = body_region[:end_rel] if end_rel is not None else body_region[:max_chars]
+        body = chunk.strip()
+        if not body:
+            continue
+        line_start = start == 0 or text[start - 1] in "\n\r"
+        candidates.append((start, body, line_start))
+
+    if not candidates:
+        return None
+
+    # Prefer earliest line-anchored body that is long enough to be the real section
+    # (skips TOC stubs and late cross-references).
+    substantial = [(s, b) for s, b, ls in candidates if ls and len(b) >= 2_000]
+    if substantial:
+        best = min(substantial, key=lambda x: x[0])[1]
+    else:
+        best = max(candidates, key=lambda x: len(x[1]))[1]
+    return best[:max_chars]
 
 
 def _fetch_via_edgartools(ticker: str) -> tuple[str, dict[str, Any]]:
@@ -110,7 +149,7 @@ def _fetch_via_sec_http(ticker: str) -> tuple[str, dict[str, Any]]:
 
 
 def fetch_10k_sections(ticker: str) -> dict[str, Any]:
-    """Fetch latest 10-K and extract Item 1A / Item 7."""
+    """Fetch latest 10-K and extract Item 1 (Business), Item 1A, Item 7."""
     cache_path = FILINGS_DIR / f"{ticker.upper()}_10k.txt"
     meta: dict[str, Any] = {}
     text: str
@@ -127,17 +166,25 @@ def fetch_10k_sections(ticker: str) -> dict[str, Any]:
         cache_path.write_text(text, encoding="utf-8", errors="replace")
         meta["path"] = str(cache_path)
 
-    item_1a = _extract_section(text, SECTION_PATTERNS["item_1a"])
-    item_7 = _extract_section(text, SECTION_PATTERNS["item_7"])
+    item_1 = _extract_section(
+        text,
+        SECTION_PATTERNS["item_1"],
+        max_chars=80_000,
+        stop_at=ITEM_1A_BOUNDARY,
+    )
+    item_1a = _extract_section(text, SECTION_PATTERNS["item_1a"], max_chars=50_000)
+    item_7 = _extract_section(text, SECTION_PATTERNS["item_7"], max_chars=50_000)
 
     return {
         "ticker": ticker.upper(),
         "meta": meta,
+        "item_1": item_1,
         "item_1a": item_1a,
         "item_7": item_7,
+        "item_1_chars": len(item_1 or ""),
         "item_1a_chars": len(item_1a or ""),
         "item_7_chars": len(item_7 or ""),
-        "extraction_ok": bool(item_1a or item_7),
+        "extraction_ok": bool(item_1 or item_1a or item_7),
     }
 
 
@@ -249,7 +296,7 @@ def save_section_blocks(sections: dict[str, Any], out_dir: Path | None = None) -
     out_dir = out_dir or FILINGS_DIR
     paths: dict[str, str] = {}
     ticker = sections["ticker"]
-    for key in ("item_1a", "item_7"):
+    for key in ("item_1", "item_1a", "item_7"):
         body = sections.get(key)
         if not body:
             continue

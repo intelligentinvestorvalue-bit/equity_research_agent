@@ -36,6 +36,7 @@ class ToolContext:
         self.fundamentals: dict[str, Any] | None = None
         self.options: dict[str, Any] | None = None
         self.sections: dict[str, Any] | None = None
+        self.nlp_business: dict[str, Any] | None = None
         self.nlp_1a: dict[str, Any] | None = None
         self.nlp_7: dict[str, Any] | None = None
         self.valuation: dict[str, Any] | None = None
@@ -128,11 +129,19 @@ def tool_fetch_10k(ctx: ToolContext) -> dict[str, Any]:
         sec_engine.save_section_blocks(sections)
     except Exception as exc:  # noqa: BLE001
         logger.exception("SEC failed")
-        sections = {"ticker": ctx.ticker, "item_1a": None, "item_7": None, "error": str(exc), "extraction_ok": False}
+        sections = {
+            "ticker": ctx.ticker,
+            "item_1": None,
+            "item_1a": None,
+            "item_7": None,
+            "error": str(exc),
+            "extraction_ok": False,
+        }
         ctx.errors.append(f"sec: {exc}")
     ctx.sections = sections
     meta = sections.get("meta") or {}
     summary = (
+        f"Item 1 chars={sections.get('item_1_chars', 0)}, "
         f"Item 1A chars={sections.get('item_1a_chars', 0)}, "
         f"Item 7 chars={sections.get('item_7_chars', 0)}, "
         f"ok={sections.get('extraction_ok')}, source={meta.get('source')}"
@@ -148,6 +157,22 @@ def tool_fetch_10k(ctx: ToolContext) -> dict[str, Any]:
         meta={"filing_date": meta.get("filing_date"), "accession": meta.get("accession_number")},
     )
     return sections
+
+
+def tool_summarize_item_1(ctx: ToolContext) -> dict[str, Any]:
+    if ctx.sections is None:
+        tool_fetch_10k(ctx)
+    ctx.progress("nlp", "Summarizing Item 1 Business")
+    text = (ctx.sections or {}).get("item_1")
+    result = nlp_engine.summarize_business(text)
+    ctx.nlp_business = result
+    ctx.evidence.add(
+        source="nlp",
+        title="Item 1 Business summary",
+        summary=(result.get("markdown") or "")[:500],
+        meta={"mode": result.get("mode")},
+    )
+    return result
 
 
 def tool_summarize_item_1a(ctx: ToolContext) -> dict[str, Any]:
@@ -340,6 +365,7 @@ def tool_draft_memo_sections(ctx: ToolContext) -> dict[str, Any]:
         multiples=ctx.multiples,
         peers=ctx.peers,
         web=ctx.web,
+        nlp_business=ctx.nlp_business,
         nlp_1a=ctx.nlp_1a,
         nlp_7=ctx.nlp_7,
         earnings=ctx.earnings,
@@ -459,6 +485,7 @@ TOOL_REGISTRY: dict[str, Callable[[ToolContext], Any]] = {
     "get_fundamentals": tool_get_fundamentals,
     "screen_puts": tool_screen_puts,
     "fetch_10k": tool_fetch_10k,
+    "summarize_item_1": tool_summarize_item_1,
     "summarize_item_1a": tool_summarize_item_1a,
     "summarize_item_7": tool_summarize_item_7,
     "run_dcf": tool_run_dcf,

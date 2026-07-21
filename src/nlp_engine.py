@@ -26,6 +26,24 @@ Excerpt:
 {chunk}
 """
 
+BUSINESS_PROMPT = """You are an equity research assistant summarizing 10-K Item 1 (Business).
+Use ONLY the excerpt. Do not invent products, segments, or figures not in the text.
+
+Write a thorough Markdown business overview with these ### headings:
+### What the company does
+### Products, services & segments
+### Customers & go-to-market
+### Competitive position & industry
+### Geography & operations
+### Recent strategic focus (if stated)
+
+Aim for 400–800 words total. Prefer concrete details from the filing over generic language.
+If a subsection has no evidence, write one short sentence saying it is not covered in the excerpt.
+
+Excerpt:
+{chunk}
+"""
+
 
 def chunk_text(text: str, max_chars: int = 6000, overlap: int = 400) -> list[str]:
     if not text:
@@ -43,7 +61,7 @@ def chunk_text(text: str, max_chars: int = 6000, overlap: int = 400) -> list[str
     return chunks
 
 
-def rule_based_summary(text: str, label: str) -> str:
+def rule_based_summary(text: str, label: str, *, max_sentences: int = 8) -> str:
     """Fallback when Ollama is unreachable: keyword hits + truncated excerpt."""
     if not text:
         return f"### {label}\nNo text available.\n"
@@ -60,17 +78,78 @@ def rule_based_summary(text: str, label: str) -> str:
         "supply chain",
         "cyber",
         "interest rate",
+        "customer",
+        "segment",
+        "product",
+        "service",
+        "market",
+        "operations",
+        "network",
+        "subsidiary",
     ]
     lower = text.lower()
     hits = [kw for kw in keywords if kw in lower]
-    sentences = re.split(r"(?<=[.!?])\s+", text)
-    interesting = [s for s in sentences if any(kw in s.lower() for kw in hits)][:8]
-    bullets = "\n".join(f"- {s.strip()}" for s in interesting) or "- No keyword highlights found."
+    sentences = re.split(r"(?<=[.!?])\s+", text.replace("\n", " "))
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 40]
+    interesting = [s for s in sentences if any(kw in s.lower() for kw in hits)]
+    picked = interesting[:max_sentences] or sentences[:max_sentences]
+    bullets = "\n".join(f"- {s}" for s in picked) or "- No keyword highlights found."
     return (
         f"### {label} (rule-based fallback — Ollama unavailable)\n"
         f"**Keyword hits:** {', '.join(hits) if hits else 'none'}\n\n"
         f"{bullets}\n"
     )
+
+
+def summarize_business(text: str | None, use_llm: bool = True) -> dict[str, Any]:
+    """Longer Item 1 Business overview for the memo Business tab."""
+    label = "Item 1 — Business"
+    if not text:
+        return {
+            "label": label,
+            "mode": "empty",
+            "markdown": f"### {label}\nNo Item 1 Business text extracted.\n",
+        }
+
+    if not use_llm or not ollama_available():
+        return {
+            "label": label,
+            "mode": "rule_based",
+            "markdown": rule_based_summary(text, label, max_sentences=28),
+        }
+
+    parts: list[str] = []
+    try:
+        chunks = chunk_text(text, max_chars=9000, overlap=500)
+        for i, chunk in enumerate(chunks[:6], start=1):
+            prompt = BUSINESS_PROMPT.format(chunk=chunk)
+            parts.append(_generate(prompt) or f"(empty model response for chunk {i})")
+        if len(parts) == 1:
+            md = parts[0]
+        else:
+            combined = "\n\n".join(f"#### Part {i}\n{p}" for i, p in enumerate(parts, start=1))
+            reduce_prompt = (
+                "Merge these partial 10-K Item 1 Business summaries into one cohesive Markdown "
+                "business overview for an equity research memo. Use these headings:\n"
+                "### What the company does\n"
+                "### Products, services & segments\n"
+                "### Customers & go-to-market\n"
+                "### Competitive position & industry\n"
+                "### Geography & operations\n"
+                "### Recent strategic focus (if stated)\n\n"
+                "Deduplicate, keep concrete filing details, aim for 500–900 words.\n\n"
+                + combined
+            )
+            md = _generate(reduce_prompt) or combined
+        return {"label": label, "mode": "ollama", "markdown": md, "model": settings.ollama_model}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Ollama business summarize failed: %s", exc)
+        return {
+            "label": label,
+            "mode": "rule_based",
+            "error": str(exc),
+            "markdown": rule_based_summary(text, label, max_sentences=28),
+        }
 
 
 def ollama_available() -> bool:
@@ -139,12 +218,14 @@ def summarize_text(
 
 
 def run_nlp(sections: dict[str, Any]) -> dict[str, Any]:
+    business = summarize_business(sections.get("item_1"))
     item_1a = summarize_section(sections.get("item_1a"), "Item 1A — Risk Factors")
     item_7 = summarize_section(sections.get("item_7"), "Item 7 — MD&A")
-    report = "\n".join([item_1a["markdown"], item_7["markdown"]])
+    report = "\n".join([business["markdown"], item_1a["markdown"], item_7["markdown"]])
     return {
         "ticker": sections.get("ticker"),
         "ollama_up": ollama_available(),
+        "business": business,
         "item_1a": item_1a,
         "item_7": item_7,
         "markdown": report,
