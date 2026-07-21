@@ -54,6 +54,20 @@ def _check_pin(pin: str | None) -> None:
 
 
 def _slim_result(result: dict[str, Any]) -> dict[str, Any]:
+    if result.get("kind") == "pack":
+        return {
+            "kind": "pack",
+            "ticker": result.get("ticker"),
+            "mode": result.get("mode"),
+            "template": "all",
+            "generated_at": result.get("generated_at"),
+            "goal": result.get("goal"),
+            "template_reports": result.get("template_reports") or [],
+            "report_markdown": result.get("report_markdown"),
+            "report_path": result.get("report_path"),
+            "charts": result.get("charts") or {"charts": []},
+            "pack_progress": result.get("pack_progress"),
+        }
     return {
         "ticker": result.get("ticker"),
         "mode": result.get("mode"),
@@ -146,6 +160,75 @@ def _run_job(job_id: str, *, use_plan_path: bool = True) -> None:
         _fail_job(job_id, exc)
 
 
+def _run_pack_job(job_id: str) -> None:
+    from src.pack_runner import run_research_pack
+    from src.plan_templates import PACK_TEMPLATE_IDS, TEMPLATES
+
+    job = job_store.get(job_id)
+    if not job:
+        return
+
+    def progress(stage: str, message: str) -> None:
+        job_store.update(job_id, status="running", stage=stage, message=message)
+
+    def think(kind: str, message: str) -> None:
+        job_store.append_thought(job_id, kind, message)
+
+    def on_child(partial: dict[str, Any]) -> None:
+        reports = partial.get("template_reports") or []
+        cur = partial.get("current")
+        idx = partial.get("index") or 0
+        total = partial.get("total") or len(PACK_TEMPLATE_IDS)
+        job_store.update(
+            job_id,
+            status="running",
+            stage="pack",
+            message=f"Finished {TEMPLATES.get(cur, {}).get('label', cur)} ({idx}/{total})",
+            result={
+                "kind": "pack",
+                "ticker": job.ticker,
+                "template": "all",
+                "template_reports": reports,
+                "pack_progress": {"index": idx, "total": total, "current": cur},
+                "report_markdown": "",
+            },
+        )
+
+    try:
+        job_store.update(
+            job_id,
+            status="running",
+            stage="pack",
+            message=f"Starting full pack ({len(PACK_TEMPLATE_IDS)} templates)",
+            result={
+                "kind": "pack",
+                "ticker": job.ticker,
+                "template": "all",
+                "template_reports": [],
+                "pack_progress": {"index": 0, "total": len(PACK_TEMPLATE_IDS), "current": None},
+            },
+        )
+        think("think", f"Full pack started for {job.ticker}.")
+        result = run_research_pack(
+            job.ticker,
+            goal=job.goal or "",
+            mode=job.mode,
+            progress=progress,
+            think=think,
+            on_child_done=on_child,
+        )
+        job_store.update(
+            job_id,
+            status="completed",
+            stage="done",
+            message="Full pack complete",
+            result=_slim_result(result),
+            finished_at=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        _fail_job(job_id, exc)
+
+
 def _start_job_flow(
     ticker: str,
     mode: str,
@@ -157,6 +240,12 @@ def _start_job_flow(
     from src.plan_templates import resolve_template_id
 
     tid = resolve_template_id(template, goal=goal, mode=mode)
+    # Full pack always auto-runs (no multi-plan approval UX)
+    if tid == "all":
+        job = job_store.create(ticker, mode, goal=goal, collaborative=False, template="all")
+        threading.Thread(target=_run_pack_job, args=(job.id,), daemon=True).start()
+        return job.id
+
     collab = collaborative and tid != "fast"
     job = job_store.create(
         ticker, mode, goal=goal, collaborative=collab, template=template or "auto"
@@ -184,7 +273,7 @@ def _job_card(j: Any) -> dict[str, Any]:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request) -> Any:
+async def home(request: Request, ticker: str = "") -> Any:
     recent = [_job_card(j) for j in job_store.list_recent(8)]
     return templates.TemplateResponse(
         request,
@@ -196,6 +285,7 @@ async def home(request: Request) -> Any:
             "templates": list_templates(),
             "recent_jobs": recent,
             "active_nav": "research",
+            "prefill_ticker": (ticker or "").strip().upper(),
         },
     )
 
@@ -230,7 +320,9 @@ async def dashboard(
     by_ticker: dict[str, dict[str, Any]] = {}
     for j in job_store.list_recent(100, status="completed"):
         if j.ticker not in by_ticker:
-            by_ticker[j.ticker] = _job_card(j)
+            card = _job_card(j)
+            card["equity_href"] = f"/equities/{j.ticker}"
+            by_ticker[j.ticker] = card
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -311,6 +403,19 @@ async def job_status(job_id: str) -> dict[str, Any]:
     job = job_store.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+    pack_progress = None
+    pack_reports = None
+    if job.result and job.result.get("kind") == "pack":
+        pack_progress = job.result.get("pack_progress")
+        pack_reports = [
+            {
+                "id": r.get("id"),
+                "label": r.get("label"),
+                "status": r.get("status"),
+                "error": r.get("error"),
+            }
+            for r in (job.result.get("template_reports") or [])
+        ]
     return {
         "id": job.id,
         "ticker": job.ticker,
@@ -326,6 +431,9 @@ async def job_status(job_id: str) -> dict[str, Any]:
         "error": job.error,
         "has_plan": bool(job.plan),
         "has_report": bool(job.result and job.result.get("report_markdown")),
+        "is_pack": job.template == "all" or (job.result or {}).get("kind") == "pack",
+        "pack_progress": pack_progress,
+        "pack_reports": pack_reports,
         "thoughts": job.thoughts[-40:],
         "thought_count": len(job.thoughts),
     }
@@ -551,6 +659,43 @@ async def job_report_page(request: Request, job_id: str) -> Any:
             "job.html",
             {"job_id": job.id, "ticker": job.ticker, "mode": job.mode, "waiting": True},
         )
+
+    is_pack = job.result.get("kind") == "pack" or job.template == "all"
+    if is_pack:
+        pack_reports = []
+        for r in job.result.get("template_reports") or []:
+            md = r.get("report_markdown") or ""
+            charts = r.get("charts") or []
+            pack_reports.append(
+                {
+                    "id": r.get("id"),
+                    "label": r.get("label") or r.get("id"),
+                    "status": r.get("status") or "completed",
+                    "error": r.get("error"),
+                    "markdown": md,
+                    "charts": charts,
+                    "tabs": build_report_tabs(md, charts),
+                }
+            )
+        return templates.TemplateResponse(
+            request,
+            "report.html",
+            {
+                "ticker": job.ticker,
+                "mode": job.mode,
+                "template": "all",
+                "goal": job.goal,
+                "markdown": job.result.get("report_markdown") or "",
+                "charts": [],
+                "tabs": [],
+                "is_pack": True,
+                "pack_reports": pack_reports,
+                "job_id": job.id,
+                "created_at": job.created_at,
+                "active_nav": "dashboard",
+            },
+        )
+
     md = job.result.get("report_markdown") or ""
     charts = ((job.result.get("charts") or {}).get("charts") or [])
     tabs = build_report_tabs(md, charts)
@@ -565,8 +710,80 @@ async def job_report_page(request: Request, job_id: str) -> Any:
             "markdown": md,
             "charts": charts,
             "tabs": tabs,
+            "is_pack": False,
+            "pack_reports": [],
             "job_id": job.id,
             "created_at": job.created_at,
+            "active_nav": "dashboard",
+        },
+    )
+
+
+@app.get("/equities/{ticker}", response_class=HTMLResponse)
+async def equity_dossier(request: Request, ticker: str) -> Any:
+    """Per-equity menu: latest completed report for each template + latest full pack."""
+    from src.plan_templates import PACK_TEMPLATE_IDS, TEMPLATES
+
+    ticker = ticker.upper().strip()
+    jobs = job_store.list_recent(100, ticker=ticker)
+    latest_pack = next(
+        (j for j in jobs if j.status == "completed" and (j.template == "all" or (j.result or {}).get("kind") == "pack")),
+        None,
+    )
+    by_template: dict[str, Any] = {}
+    for j in jobs:
+        if j.status != "completed" or not j.result:
+            continue
+        if j.template == "all" or (j.result or {}).get("kind") == "pack":
+            continue
+        tid = j.template or "deep"
+        if tid == "auto":
+            tid = ((j.result.get("plan") or {}).get("template")) or "deep"
+        if tid not in by_template:
+            by_template[tid] = _job_card(j)
+
+    menu = []
+    if latest_pack:
+        menu.append(
+            {
+                "id": "all",
+                "label": "Full pack (all templates)",
+                "href": f"/jobs/{latest_pack.id}/report",
+                "status": "completed",
+                "created_at": latest_pack.created_at,
+            }
+        )
+    for tid in PACK_TEMPLATE_IDS:
+        if tid in by_template:
+            j = by_template[tid]
+            menu.append(
+                {
+                    "id": tid,
+                    "label": (TEMPLATES.get(tid) or {}).get("label") or tid,
+                    "href": j["href"],
+                    "status": j["status"],
+                    "created_at": j["created_at"],
+                }
+            )
+        else:
+            menu.append(
+                {
+                    "id": tid,
+                    "label": (TEMPLATES.get(tid) or {}).get("label") or tid,
+                    "href": None,
+                    "status": "missing",
+                    "created_at": None,
+                }
+            )
+
+    return templates.TemplateResponse(
+        request,
+        "equity.html",
+        {
+            "ticker": ticker,
+            "menu": menu,
+            "latest_pack_id": latest_pack.id if latest_pack else None,
+            "jobs": [_job_card(j) for j in jobs[:30]],
             "active_nav": "dashboard",
         },
     )

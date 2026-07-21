@@ -40,7 +40,14 @@ def _fmt_year(period: str) -> str:
     return (period or "")[:4] or period
 
 
-def chart_revenue_fcf(ticker: str, fund: dict[str, Any], out_dir: Path | None = None) -> Path | None:
+def _chart_path(out_dir: Path, ticker: str, key: str, name_tag: str = "") -> Path:
+    tag = f"_{name_tag}" if name_tag else ""
+    return out_dir / f"{ticker.upper()}{tag}_{key}.png"
+
+
+def chart_revenue_fcf(
+    ticker: str, fund: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
+) -> Path | None:
     """Bar chart of revenue and FCF history."""
     history = (fund or {}).get("history") or {}
     rev = list(reversed(history.get("revenue") or []))
@@ -51,7 +58,7 @@ def chart_revenue_fcf(ticker: str, fund: dict[str, Any], out_dir: Path | None = 
     plt = _setup_mpl()
     out_dir = out_dir or CHARTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{ticker.upper()}_revenue_fcf.png"
+    path = _chart_path(out_dir, ticker, "revenue_fcf", name_tag)
 
     # Align on periods
     periods = []
@@ -83,7 +90,9 @@ def chart_revenue_fcf(ticker: str, fund: dict[str, Any], out_dir: Path | None = 
     return path
 
 
-def chart_dcf_scenarios(ticker: str, valuation: dict[str, Any], out_dir: Path | None = None) -> Path | None:
+def chart_dcf_scenarios(
+    ticker: str, valuation: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
+) -> Path | None:
     """Bar chart of bear/base/bull share prices vs spot."""
     if not valuation or not valuation.get("ok"):
         return None
@@ -104,7 +113,7 @@ def chart_dcf_scenarios(ticker: str, valuation: dict[str, Any], out_dir: Path | 
     plt = _setup_mpl()
     out_dir = out_dir or CHARTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{ticker.upper()}_dcf_scenarios.png"
+    path = _chart_path(out_dir, ticker, "dcf_scenarios", name_tag)
 
     spot = valuation.get("spot_price")
     colors = {"bear": "#c45c5c", "base": "#3d9b6e", "bull": "#5b8def"}
@@ -133,7 +142,9 @@ def chart_dcf_scenarios(ticker: str, valuation: dict[str, Any], out_dir: Path | 
     return path
 
 
-def chart_base_fcf_path(ticker: str, valuation: dict[str, Any], out_dir: Path | None = None) -> Path | None:
+def chart_base_fcf_path(
+    ticker: str, valuation: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
+) -> Path | None:
     """Line/bar of base-case projected FCF path."""
     if not valuation or not valuation.get("ok"):
         return None
@@ -145,7 +156,7 @@ def chart_base_fcf_path(ticker: str, valuation: dict[str, Any], out_dir: Path | 
     plt = _setup_mpl()
     out_dir = out_dir or CHARTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{ticker.upper()}_base_fcf_path.png"
+    path = _chart_path(out_dir, ticker, "base_fcf_path", name_tag)
 
     years = [c["year"] for c in cfs]
     fcf = [float(c["fcf"]) / 1e6 for c in cfs]
@@ -164,7 +175,7 @@ def chart_base_fcf_path(ticker: str, valuation: dict[str, Any], out_dir: Path | 
 
 
 def chart_ev_ebitda_scenarios(
-    ticker: str, multiples: dict[str, Any], out_dir: Path | None = None
+    ticker: str, multiples: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
 ) -> Path | None:
     if not multiples or not multiples.get("ok"):
         return None
@@ -183,7 +194,7 @@ def chart_ev_ebitda_scenarios(
     plt = _setup_mpl()
     out_dir = out_dir or CHARTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{ticker.upper()}_ev_ebitda_scenarios.png"
+    path = _chart_path(out_dir, ticker, "ev_ebitda_scenarios", name_tag)
     spot = multiples.get("spot_price")
     colors = {"bear": "#c45c5c", "base": "#3d9b6e", "bull": "#5b8def"}
 
@@ -212,7 +223,7 @@ def chart_ev_ebitda_scenarios(
 
 
 def chart_peer_normalized(
-    ticker: str, peers: dict[str, Any], out_dir: Path | None = None
+    ticker: str, peers: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
 ) -> Path | None:
     """Normalized 5y price index for subject + peers."""
     histories = (peers or {}).get("_histories") or (peers or {}).get("histories") or {}
@@ -221,7 +232,7 @@ def chart_peer_normalized(
     plt = _setup_mpl()
     out_dir = out_dir or CHARTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{ticker.upper()}_peers_normalized.png"
+    path = _chart_path(out_dir, ticker, "peers_normalized", name_tag)
 
     fig, ax = plt.subplots(figsize=(8.4, 4.4))
     plotted = 0
@@ -260,28 +271,31 @@ def generate_research_charts(
     *,
     multiples: dict[str, Any] | None = None,
     peers: dict[str, Any] | None = None,
+    name_tag: str = "",
 ) -> dict[str, Any]:
     """
     Build available charts; returns metadata with paths and public URLs.
+    name_tag namespaces filenames (e.g. template id) so pack runs don't overwrite.
     """
     out_dir = out_dir or CHARTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     ticker = ticker.upper()
+    tag = name_tag or ""
     charts: list[dict[str, str]] = []
 
     builders = [
-        ("revenue_fcf", "Revenue & FCF history", lambda: chart_revenue_fcf(ticker, fund or {}, out_dir)),
-        ("dcf_scenarios", "DCF scenario prices", lambda: chart_dcf_scenarios(ticker, valuation or {}, out_dir)),
-        ("base_fcf_path", "Base-case FCF path", lambda: chart_base_fcf_path(ticker, valuation or {}, out_dir)),
+        ("revenue_fcf", "Revenue & FCF history", lambda: chart_revenue_fcf(ticker, fund or {}, out_dir, tag)),
+        ("dcf_scenarios", "DCF scenario prices", lambda: chart_dcf_scenarios(ticker, valuation or {}, out_dir, tag)),
+        ("base_fcf_path", "Base-case FCF path", lambda: chart_base_fcf_path(ticker, valuation or {}, out_dir, tag)),
         (
             "ev_ebitda_scenarios",
             "EV/EBITDA scenario prices",
-            lambda: chart_ev_ebitda_scenarios(ticker, multiples or {}, out_dir),
+            lambda: chart_ev_ebitda_scenarios(ticker, multiples or {}, out_dir, tag),
         ),
         (
             "peers_normalized",
             "Normalized price vs peers",
-            lambda: chart_peer_normalized(ticker, peers or {}, out_dir),
+            lambda: chart_peer_normalized(ticker, peers or {}, out_dir, tag),
         ),
     ]
     for key, title, fn in builders:
@@ -303,7 +317,7 @@ def generate_research_charts(
             }
         )
 
-    return {"ticker": ticker, "charts": charts}
+    return {"ticker": ticker, "charts": charts, "name_tag": tag}
 
 
 def charts_markdown(charts_meta: dict[str, Any]) -> str:

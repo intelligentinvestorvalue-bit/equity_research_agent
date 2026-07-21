@@ -446,6 +446,51 @@ button:active { background: var(--accent-dim); }
 .badge.status-awaiting_approval,
 .badge.status-planning { color: var(--warn); border: 1px solid #6a4a22; }
 
+.template-menu-panel {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid #2a3a32;
+}
+.template-menu {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+.template-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.75rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid #344840;
+  background: #121c18;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  font: inherit;
+  min-height: auto;
+  margin: 0;
+}
+.template-menu-item:hover { border-color: var(--accent); }
+.template-menu-item.active,
+.template-menu-item.accent {
+  border-color: var(--accent);
+  background: #1a2e24;
+}
+.template-menu-item.missing {
+  opacity: 0.55;
+  cursor: default;
+}
+.pack-template-bar {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: 1rem;
+}
+.pack-panel { display: none; }
+.pack-panel.active { display: block; }
+
 @media (max-width: 480px) {
   .brand { font-size: 1.45rem; }
   input, select, button { font-size: 1.05rem; }

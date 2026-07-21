@@ -26,15 +26,15 @@
     <form class="card-form" method="post" action="/research">
       <label for="ticker">Ticker</label>
       <input id="ticker" name="ticker" type="text" inputmode="latin" autocomplete="off"
-             placeholder="UUUU" required maxlength="12" />
+             placeholder="UUUU" required maxlength="12" value="{{ prefill_ticker or '' }}" />
 
       <label for="template">Research template</label>
       <select id="template" name="template">
         {% for t in templates %}
-        <option value="{{ t.id }}" {% if t.id == 'auto' %}selected{% endif %}>{{ t.label }}</option>
+        <option value="{{ t.id }}" {% if t.id == 'all' %}selected{% endif %}>{{ t.label }}</option>
         {% endfor %}
       </select>
-      <p class="fine" id="template-hint">Auto picks valuation / income / deep from your goal text.</p>
+      <p class="fine" id="template-hint">Run every template for this equity; each opens in its own tab.</p>
 
       <label for="goal">Research goal (optional)</label>
       <input id="goal" name="goal" type="text" maxlength="240"
@@ -43,12 +43,12 @@
       <label for="mode">Mode</label>
       <select id="mode" name="mode">
         <option value="fast">Fast — skip collaborative review when template is Fast</option>
-        <option value="deep" selected>Deep — plan &amp; approve (recommended)</option>
+        <option value="deep" selected>Deep — plan &amp; approve (single templates)</option>
       </select>
 
       <label class="check">
-        <input type="checkbox" name="collaborative" value="on" checked />
-        Review plan before running
+        <input type="checkbox" name="collaborative" value="on" checked id="collaborative" />
+        Review plan before running <span class="muted">(ignored for All templates pack)</span>
       </label>
 
       {% if pin_required %}

@@ -285,6 +285,7 @@ def run_planned_research(
         ctx.valuation,
         multiples=ctx.multiples,
         peers=ctx.peers,
+        name_tag=getattr(plan, "template", "") or "",
     )
     ctx._charts_markdown = charts_markdown(charts_meta)  # type: ignore[attr-defined]
     think("think", f"Generated {len(charts_meta.get('charts') or [])} chart(s).")

@@ -26,6 +26,11 @@
       <ul id="thoughts" class="thought-list"></ul>
     </section>
 
+    <section class="think-panel" id="pack-panel" hidden aria-label="Pack progress">
+      <p class="scenario-label">Template pack</p>
+      <ul id="pack-list" class="recent-list"></ul>
+    </section>
+
     <p><a class="link" href="/">← New research</a> · <a class="link" href="/dashboard">Dashboard</a></p>
   </main>
 
@@ -35,11 +40,13 @@
     const detailEl = document.getElementById("detail");
     const fillEl = document.getElementById("fill");
     const thoughtsEl = document.getElementById("thoughts");
+    const packPanel = document.getElementById("pack-panel");
+    const packList = document.getElementById("pack-list");
     let lastThoughtCount = 0;
 
     const stageWidth = {
       queued: "8%", starting: "12%", plan: "18%", planning: "20%",
-      quant: "28%", valuation: "38%", web: "50%", think: "62%",
+      pack: "35%", quant: "28%", valuation: "38%", web: "50%", think: "62%",
       critique: "72%", charts: "82%", sec: "70%", nlp: "88%", done: "100%", error: "100%"
     };
 
@@ -63,14 +70,44 @@
       thoughtsEl.scrollTop = thoughtsEl.scrollHeight;
     }
 
+    function renderPack(data) {
+      if (!data.is_pack) return;
+      packPanel.hidden = false;
+      const prog = data.pack_progress || {};
+      const total = prog.total || 5;
+      const idx = prog.index || (data.pack_reports || []).length || 0;
+      fillEl.style.width = `${Math.min(95, Math.round((idx / total) * 90) + 5)}%`;
+      const doneIds = new Set((data.pack_reports || []).map((r) => r.id));
+      const labels = {
+        memo: "Institutional deep dive (memo)",
+        valuation: "Valuation",
+        deep: "Full diligence",
+        income: "Options income",
+        fast: "Fast quant",
+      };
+      const order = ["memo", "valuation", "deep", "income", "fast"];
+      packList.innerHTML = "";
+      order.forEach((id) => {
+        const row = (data.pack_reports || []).find((r) => r.id === id);
+        const li = document.createElement("li");
+        const status = row ? row.status : (prog.current === id ? "running" : "pending");
+        li.innerHTML = `<strong>${labels[id] || id}</strong> <span class="muted">${status}</span>`;
+        packList.appendChild(li);
+      });
+      if (prog.index && prog.total) {
+        detailEl.textContent = data.message || `Pack ${prog.index}/${prog.total}`;
+      }
+    }
+
     async function tick() {
       try {
         const res = await fetch(`/api/jobs/${jobId}`);
         const data = await res.json();
         stateEl.textContent = `${data.status} · ${data.stage}`;
         detailEl.textContent = data.message || "";
-        fillEl.style.width = stageWidth[data.stage] || "20%";
+        if (!data.is_pack) fillEl.style.width = stageWidth[data.stage] || "20%";
         renderThoughts(data.thoughts || []);
+        renderPack(data);
         if (data.status === "completed") {
           window.location.href = `/jobs/${jobId}/report`;
           return;

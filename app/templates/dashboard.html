@@ -24,7 +24,7 @@
       <p class="scenario-label">Stocks researched</p>
       <div class="ticker-chips">
         {% for t in tickers %}
-        <a class="ticker-chip" href="{{ t.href }}">{{ t.ticker }}</a>
+        <a class="ticker-chip" href="{{ t.equity_href or t.href }}">{{ t.ticker }}</a>
         {% endfor %}
       </div>
     </section>

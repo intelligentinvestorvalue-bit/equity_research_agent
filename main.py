@@ -23,8 +23,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--template",
         default="auto",
-        choices=["auto", "memo", "valuation", "deep", "income", "fast"],
-        help="Plan template (auto infers from goal)",
+        choices=["auto", "all", "memo", "valuation", "deep", "income", "fast"],
+        help="Plan template (auto infers from goal; all runs every template)",
     )
     parser.add_argument(
         "--legacy",

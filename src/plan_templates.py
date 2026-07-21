@@ -13,6 +13,11 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "label": "Auto (from goal)",
         "description": "Pick valuation / income / deep / memo / fast from your goal text",
     },
+    "all": {
+        "id": "all",
+        "label": "All templates (full pack)",
+        "description": "Run memo + valuation + deep + income + fast for one equity; view each in its own tab",
+    },
     "memo": {
         "id": "memo",
         "label": "Institutional deep dive (memo)",
@@ -40,9 +45,12 @@ TEMPLATES: dict[str, dict[str, Any]] = {
     },
 }
 
+# Templates included in a full-pack run (order = UI tab order)
+PACK_TEMPLATE_IDS: list[str] = ["memo", "valuation", "deep", "income", "fast"]
+
 
 def list_templates() -> list[dict[str, Any]]:
-    order = ["auto", "memo", "valuation", "deep", "income", "fast"]
+    order = ["all", "auto", "memo", "valuation", "deep", "income", "fast"]
     return [TEMPLATES[k] for k in order if k in TEMPLATES]
 
 
@@ -54,6 +62,7 @@ def infer_template_from_goal(goal: str, mode: str = "deep") -> str:
     if mode == "fast" and not g:
         return "fast"
 
+    all_kw = ("all templates", "full pack", "every template", "run all", "complete pack")
     memo_kw = (
         "memo",
         "thesis",
@@ -80,6 +89,8 @@ def infer_template_from_goal(goal: str, mode: str = "deep") -> str:
     income_kw = ("covered call", "put income", "wheel", "options income", "premium", "csp", "put screen")
     deep_kw = ("10-k", "10k", "diligence", "risk factor", "md&a", "mda", "filing")
 
+    if any(k in g for k in all_kw):
+        return "all"
     if any(k in g for k in memo_kw):
         return "memo"
     if any(k in g for k in valuation_kw):
@@ -97,6 +108,8 @@ def resolve_template_id(template: str | None, goal: str = "", mode: str = "deep"
     tid = (template or "auto").strip().lower() or "auto"
     if tid == "auto":
         return infer_template_from_goal(goal, mode)
+    if tid == "all":
+        return "all"
     if tid in TEMPLATES and tid != "auto":
         return tid
     return infer_template_from_goal(goal, mode)
@@ -354,6 +367,7 @@ def default_goal_for_template(template_id: str, goal: str = "") -> str:
     if goal.strip():
         return goal.strip()
     defaults = {
+        "all": "Full research pack across all templates",
         "memo": "Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers",
         "valuation": "Estimate intrinsic value under base / bull / bear scenarios",
         "deep": "Deep diligence: fundamentals, DCF, web, 10-K risks & MD&A",

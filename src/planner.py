@@ -73,6 +73,8 @@ def build_template_plan(
     ticker = ticker.upper().strip()
     mode = "fast" if mode == "fast" else "deep"
     tid = resolve_template_id(template, goal=goal, mode=mode)
+    if tid == "all":
+        raise ValueError("template=all is a pack run; use run_research_pack / UI All templates")
     # Fast mode forces fast template unless valuation/income explicitly chosen
     if mode == "fast" and (template or "auto") == "auto":
         tid = "fast"

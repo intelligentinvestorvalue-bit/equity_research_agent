@@ -14,19 +14,82 @@
       <div>
         <p class="brand">{{ ticker }} report</p>
         <p class="sub">
-          {{ mode }}{% if template %} · {{ template }}{% endif %}
+          {% if is_pack %}Full pack · all templates{% else %}{{ mode }}{% if template %} · {{ template }}{% endif %}{% endif %}
           {% if created_at %} · {{ created_at[:16].replace('T', ' ') }} UTC{% endif %}
         </p>
         {% if goal %}<p class="fine">Goal: {{ goal }}</p>{% endif %}
       </div>
       <div class="actions">
         <a class="btn secondary" href="/jobs/{{ job_id }}/report.md">Download .md</a>
+        <a class="btn secondary" href="/equities/{{ ticker }}">Equity menu</a>
         <a class="btn secondary" href="/dashboard">Dashboard</a>
         <a class="btn secondary" href="/">New</a>
       </div>
     </header>
 
-    {% if tabs %}
+    {% if is_pack and pack_reports %}
+    <div class="pack-shell" data-pack>
+      <p class="scenario-label">Templates</p>
+      <div class="template-menu pack-template-bar" role="tablist" aria-label="Research templates">
+        {% for p in pack_reports %}
+        <button type="button"
+                class="template-menu-item {% if loop.first %}active{% endif %}"
+                role="tab"
+                data-pack-tab="{{ p.id }}"
+                aria-selected="{{ 'true' if loop.first else 'false' }}">
+          <strong>{{ p.label }}</strong>
+          <span class="muted">{{ p.status }}</span>
+        </button>
+        {% endfor %}
+      </div>
+
+      {% for p in pack_reports %}
+      <div class="pack-panel {% if loop.first %}active{% endif %}"
+           data-pack-panel="{{ p.id }}"
+           {% if not loop.first %}hidden{% endif %}>
+        {% if p.status == 'failed' %}
+        <p class="banner error">{{ p.error or 'Template failed' }}</p>
+        {% endif %}
+
+        {% if p.tabs %}
+        <div class="report-tabs" data-tabs="{{ p.id }}">
+          <div class="tab-bar" role="tablist" aria-label="{{ p.label }} sections">
+            {% for t in p.tabs %}
+            <button type="button"
+                    class="tab-btn{% if loop.first %} active{% endif %}"
+                    role="tab"
+                    data-tab="{{ p.id }}__{{ t.id }}"
+                    aria-selected="{{ 'true' if loop.first else 'false' }}">{{ t.label }}</button>
+            {% endfor %}
+          </div>
+          {% for t in p.tabs %}
+          <div class="tab-panel{% if loop.first %} active{% endif %}"
+               id="panel-{{ p.id }}__{{ t.id }}"
+               data-tab-panel="{{ p.id }}__{{ t.id }}"
+               {% if not loop.first %}hidden{% endif %}>
+            {% if t.kind == 'charts' %}
+            <section class="chart-gallery" aria-label="Charts">
+              {% for c in t.charts %}
+              <figure class="chart-card">
+                <figcaption>{{ c.title }}</figcaption>
+                <img src="{{ c.url }}" alt="{{ c.title }}" loading="lazy" />
+              </figure>
+              {% endfor %}
+            </section>
+            {% else %}
+            <article class="report tab-report" data-md="{{ p.id }}__{{ t.id }}"></article>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <article class="report" data-md="{{ p.id }}__full"></article>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {% elif tabs %}
     <div class="report-tabs" data-tabs>
       <div class="tab-bar" role="tablist" aria-label="Report sections">
         {% for t in tabs %}
@@ -67,11 +130,25 @@
   </main>
   <script>
     const tabMarkdown = {
+      {% if is_pack %}
+      {% for p in pack_reports %}
+      {% if p.tabs %}
+      {% for t in p.tabs %}
+      {% if t.kind != 'charts' %}
+      {{ (p.id ~ '__' ~ t.id)|tojson }}: {{ t.markdown|tojson }},
+      {% endif %}
+      {% endfor %}
+      {% else %}
+      {{ (p.id ~ '__full')|tojson }}: {{ p.markdown|tojson }},
+      {% endif %}
+      {% endfor %}
+      {% else %}
       {% for t in tabs %}
       {% if t.kind != 'charts' %}
       {{ t.id|tojson }}: {{ t.markdown|tojson }},
       {% endif %}
       {% endfor %}
+      {% endif %}
     };
     const fallbackMd = {{ markdown|tojson }};
 
@@ -82,36 +159,78 @@
     const plain = document.getElementById("report");
     if (plain) plain.innerHTML = marked.parse(fallbackMd || "");
 
-    const root = document.querySelector("[data-tabs]");
-    if (root) {
-      const buttons = [...root.querySelectorAll(".tab-btn")];
-      const panels = [...root.querySelectorAll(".tab-panel")];
+    function wireTabs(root) {
+      if (!root) return;
+      const buttons = [...root.querySelectorAll(":scope > .tab-bar > .tab-btn, :scope > .tab-bar .tab-btn")];
+      const panels = [...root.querySelectorAll(":scope > .tab-panel, [data-tab-panel]")].filter((p) => root.contains(p));
+      // Prefer data-tab-panel children of this root
+      const localPanels = [...root.querySelectorAll(".tab-panel")];
+      const localBtns = [...root.querySelectorAll(".tab-btn")];
 
       function activate(id, pushHash) {
-        buttons.forEach((btn) => {
+        localBtns.forEach((btn) => {
           const on = btn.dataset.tab === id;
           btn.classList.toggle("active", on);
           btn.setAttribute("aria-selected", on ? "true" : "false");
         });
-        panels.forEach((panel) => {
-          const on = panel.id === `panel-${id}`;
+        localPanels.forEach((panel) => {
+          const pid = panel.dataset.tabPanel || panel.id.replace(/^panel-/, "");
+          const on = pid === id || panel.id === `panel-${id}`;
           panel.classList.toggle("active", on);
           panel.hidden = !on;
         });
-        if (pushHash) {
-          history.replaceState(null, "", `#${id}`);
-        }
+        if (pushHash) history.replaceState(null, "", `#${id}`);
       }
 
-      buttons.forEach((btn) => {
-        btn.addEventListener("click", () => activate(btn.dataset.tab, true));
-      });
+      localBtns.forEach((btn) => btn.addEventListener("click", () => activate(btn.dataset.tab, true)));
+      return { activate, localBtns };
+    }
 
-      const hash = (location.hash || "").replace(/^#/, "");
-      if (hash && buttons.some((b) => b.dataset.tab === hash)) {
-        activate(hash, false);
+    {% if is_pack %}
+    const packRoot = document.querySelector("[data-pack]");
+    const packBtns = [...packRoot.querySelectorAll("[data-pack-tab]")];
+    const packPanels = [...packRoot.querySelectorAll("[data-pack-panel]")];
+    const sectionWires = {};
+    packPanels.forEach((panel) => {
+      const tabsRoot = panel.querySelector("[data-tabs]");
+      if (tabsRoot) sectionWires[panel.dataset.packPanel] = wireTabs(tabsRoot);
+    });
+
+    function activatePack(id, pushHash) {
+      packBtns.forEach((btn) => {
+        const on = btn.dataset.packTab === id;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      packPanels.forEach((panel) => {
+        const on = panel.dataset.packPanel === id;
+        panel.classList.toggle("active", on);
+        panel.hidden = !on;
+      });
+      if (pushHash) history.replaceState(null, "", `#pack-${id}`);
+    }
+    packBtns.forEach((btn) => btn.addEventListener("click", () => activatePack(btn.dataset.packTab, true)));
+
+    const hash = (location.hash || "").replace(/^#/, "");
+    if (hash.startsWith("pack-")) {
+      const pid = hash.slice(5);
+      if (packBtns.some((b) => b.dataset.packTab === pid)) activatePack(pid, false);
+    } else if (hash.includes("__")) {
+      const pid = hash.split("__")[0];
+      if (packBtns.some((b) => b.dataset.packTab === pid)) {
+        activatePack(pid, false);
+        const wire = sectionWires[pid];
+        if (wire && wire.localBtns.some((b) => b.dataset.tab === hash)) wire.activate(hash, false);
       }
     }
+    {% else %}
+    const root = document.querySelector("[data-tabs]");
+    const wired = wireTabs(root);
+    const hash = (location.hash || "").replace(/^#/, "");
+    if (wired && hash && wired.localBtns.some((b) => b.dataset.tab === hash)) {
+      wired.activate(hash, false);
+    }
+    {% endif %}
   </script>
 </body>
 </html>
