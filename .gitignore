@@ -7,6 +7,9 @@ output/
 data/filings/
 data/*.db
 data/*.db-*
+# Keep shared research packs (cloud ↔ local) under data/sync/
+!data/sync/
+!data/sync/**
 *.egg-info/
 .pytest_cache/
 .mypy_cache/

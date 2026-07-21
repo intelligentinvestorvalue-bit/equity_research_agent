@@ -57,6 +57,22 @@ Outputs:
 | `fast` | Fundamentals + put screen |
 | `deep` | Above + 10-K Item 1A/7 + Ollama (or rule-based fallback) |
 
+## Cloud ↔ local sync
+
+Research jobs are stored in local SQLite (`data/research.db`, gitignored). To keep **Cursor Cloud** and **local** in sync:
+
+1. After a research run finishes, the app writes packs to `data/sync/` (JSON + report markdown + charts).
+2. Commit and push `data/sync/` from that environment.
+3. On the other environment: `git pull`, then start the app (startup auto-imports) or run:
+
+```powershell
+python -m src.sync_cli import
+python -m src.sync_cli export   # push existing local DB jobs into data/sync/
+python -m src.sync_cli status
+```
+
+API helpers: `POST /api/sync/import`, `POST /api/sync/export`.
+
 ## Fallbacks (built in)
 
 - Ollama down → keyword/rule-based text summary

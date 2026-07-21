@@ -156,6 +156,56 @@ class JobStore:
                 conn.close()
         return job
 
+    def upsert(self, job: Job) -> None:
+        """Insert or fully replace a job row (used by cloud/local sync import)."""
+        with self._lock:
+            conn = connect()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO jobs (
+                        id, ticker, mode, goal, template, collaborative,
+                        status, stage, message, created_at, finished_at,
+                        plan_json, result_json, error, thoughts_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        ticker=excluded.ticker,
+                        mode=excluded.mode,
+                        goal=excluded.goal,
+                        template=excluded.template,
+                        collaborative=excluded.collaborative,
+                        status=excluded.status,
+                        stage=excluded.stage,
+                        message=excluded.message,
+                        created_at=excluded.created_at,
+                        finished_at=excluded.finished_at,
+                        plan_json=excluded.plan_json,
+                        result_json=excluded.result_json,
+                        error=excluded.error,
+                        thoughts_json=excluded.thoughts_json
+                    """,
+                    (
+                        job.id,
+                        job.ticker,
+                        job.mode,
+                        job.goal,
+                        job.template,
+                        1 if job.collaborative else 0,
+                        job.status,
+                        job.stage,
+                        job.message,
+                        job.created_at,
+                        job.finished_at,
+                        _dumps(job.plan),
+                        _dumps(job.result),
+                        job.error,
+                        _dumps(job.thoughts) or "[]",
+                    ),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
     def get(self, job_id: str) -> Job | None:
         with self._lock:
             conn = connect()

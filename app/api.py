@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,9 @@ from src.plan_schema import ResearchPlan
 from src.plan_templates import list_templates
 from src.planner import apply_plan_edits, generate_plan
 from src.report_tabs import build_report_tabs, job_href
+from src.sync_store import export_all_completed, export_job_id, import_all_sync_jobs
+
+logger = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
@@ -30,6 +34,23 @@ app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="stati
 (OUTPUT_DIR / "charts").mkdir(parents=True, exist_ok=True)
 app.mount("/charts", StaticFiles(directory=str(OUTPUT_DIR / "charts")), name="charts")
 
+
+@app.on_event("startup")
+def _sync_on_startup() -> None:
+    """Pull git-tracked research packs into local SQLite (cloud ↔ local)."""
+    try:
+        stats = import_all_sync_jobs(job_store)
+        if any(stats.get(k, 0) for k in ("inserted", "updated")):
+            logger.info("Startup sync: %s", stats)
+    except Exception:  # noqa: BLE001
+        logger.exception("Startup sync import failed")
+
+
+def _export_job_sync(job_id: str) -> None:
+    try:
+        export_job_id(job_store, job_id)
+    except Exception:  # noqa: BLE001
+        logger.exception("Job sync export failed for %s", job_id)
 
 class ResearchRequest(BaseModel):
     ticker: str = Field(..., min_length=1, max_length=12)
@@ -103,7 +124,6 @@ def _fail_job(job_id: str, exc: Exception) -> None:
         finished_at=datetime.now(timezone.utc).isoformat(),
     )
 
-
 def _plan_job(job_id: str) -> None:
     job = job_store.get(job_id)
     if not job:
@@ -120,6 +140,7 @@ def _plan_job(job_id: str) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         _fail_job(job_id, exc)
+        _export_job_sync(job_id)
 
 
 def _run_job(job_id: str, *, use_plan_path: bool = True) -> None:
@@ -156,8 +177,10 @@ def _run_job(job_id: str, *, use_plan_path: bool = True) -> None:
             plan=result.get("plan") or job.plan,
             finished_at=datetime.now(timezone.utc).isoformat(),
         )
+        _export_job_sync(job_id)
     except Exception as exc:  # noqa: BLE001
         _fail_job(job_id, exc)
+        _export_job_sync(job_id)
 
 
 def _run_pack_job(job_id: str) -> None:
@@ -225,8 +248,10 @@ def _run_pack_job(job_id: str) -> None:
             result=_slim_result(result),
             finished_at=datetime.now(timezone.utc).isoformat(),
         )
+        _export_job_sync(job_id)
     except Exception as exc:  # noqa: BLE001
         _fail_job(job_id, exc)
+        _export_job_sync(job_id)
 
 
 def _start_job_flow(
@@ -339,11 +364,31 @@ async def dashboard(
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
+    from src.sync_store import JOBS_DIR, ensure_sync_dirs
+
+    ensure_sync_dirs()
+    sync_files = len(list(JOBS_DIR.glob("*.json")))
     return {
         "ok": True,
         "ollama_up": ollama_available(),
         "model": settings.ollama_model,
+        "sync_jobs": sync_files,
+        "db_jobs": job_store.count_jobs(),
     }
+
+
+@app.post("/api/sync/import")
+async def sync_import() -> dict[str, Any]:
+    """Import git-tracked data/sync jobs into local SQLite."""
+    stats = import_all_sync_jobs(job_store)
+    return {"ok": True, "stats": stats}
+
+
+@app.post("/api/sync/export")
+async def sync_export() -> dict[str, Any]:
+    """Export all completed local jobs into data/sync for git commit/push."""
+    n = export_all_completed(job_store)
+    return {"ok": True, "exported": n}
 
 
 @app.post("/api/research")
