@@ -41,6 +41,7 @@ class ToolContext:
         self.nlp_7: dict[str, Any] | None = None
         self.valuation: dict[str, Any] | None = None
         self.multiples: dict[str, Any] | None = None
+        self.scenario_ranges: dict[str, Any] | None = None
         self.peers: dict[str, Any] | None = None
         self.earnings: dict[str, Any] | None = None
         self.filings_extra: dict[str, Any] | None = None
@@ -262,6 +263,46 @@ def tool_run_ev_ebitda(ctx: ToolContext) -> dict[str, Any]:
     return result
 
 
+def tool_build_scenario_ranges(ctx: ToolContext) -> dict[str, Any]:
+    from src.scenario_ranges import build_scenario_ranges
+
+    if ctx.fundamentals is None:
+        tool_get_fundamentals(ctx)
+    ctx.progress("scenarios", f"Building headwind/tailwind price ranges for {ctx.ticker}")
+    result = build_scenario_ranges(
+        ctx.ticker,
+        fund=ctx.fundamentals,
+        peers=ctx.peers,
+        web=ctx.web,
+        nlp_1a=ctx.nlp_1a,
+        nlp_7=ctx.nlp_7,
+        nlp_business=ctx.nlp_business,
+        earnings=ctx.earnings,
+        filings_extra=ctx.filings_extra,
+        multiples=ctx.multiples,
+        goal=ctx.plan_goal,
+    )
+    ctx.scenario_ranges = result
+    base = (result.get("scenarios") or {}).get("base") or {}
+    ctx.evidence.add(
+        source="scenarios",
+        title=f"{ctx.ticker} scenario price ranges",
+        summary=(
+            f"ok={result.get('ok')}; base mid={base.get('price_mid')}; "
+            f"headwinds={len(result.get('headwinds') or [])}; "
+            f"tailwinds={len(result.get('tailwinds') or [])}"
+        ),
+        meta={
+            "ok": result.get("ok"),
+            "expected_mid": result.get("expected_mid"),
+            "driver_mode": result.get("driver_mode"),
+        },
+    )
+    if not result.get("ok"):
+        ctx.errors.append("scenarios: " + "; ".join(result.get("errors") or ["failed"]))
+    return result
+
+
 def tool_get_peer_comps(ctx: ToolContext) -> dict[str, Any]:
     from src.peers import fetch_peer_comps, format_peer_comps_markdown
 
@@ -370,6 +411,7 @@ def tool_draft_memo_sections(ctx: ToolContext) -> dict[str, Any]:
         nlp_7=ctx.nlp_7,
         earnings=ctx.earnings,
         filings_extra=ctx.filings_extra,
+        scenario_ranges=ctx.scenario_ranges,
         goal=ctx.plan_goal,
     )
     ctx.memo = result
@@ -490,6 +532,7 @@ TOOL_REGISTRY: dict[str, Callable[[ToolContext], Any]] = {
     "summarize_item_7": tool_summarize_item_7,
     "run_dcf": tool_run_dcf,
     "run_ev_ebitda": tool_run_ev_ebitda,
+    "build_scenario_ranges": tool_build_scenario_ranges,
     "get_peer_comps": tool_get_peer_comps,
     "get_earnings": tool_get_earnings,
     "fetch_recent_filings": tool_fetch_recent_filings,

@@ -222,6 +222,64 @@ def chart_ev_ebitda_scenarios(
     return path
 
 
+def chart_scenario_ranges(
+    ticker: str, scenarios: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
+) -> Path | None:
+    """Error-bar chart of medium-term bear/base/bull price ranges."""
+    if not scenarios or not scenarios.get("ok"):
+        return None
+    scens = scenarios.get("scenarios") or {}
+    labels, mids, lows, highs = [], [], [], []
+    for key in ("bear", "base", "bull"):
+        sc = scens.get(key) or {}
+        if not sc.get("ok"):
+            continue
+        labels.append(key)
+        mids.append(float(sc["price_mid"]))
+        lows.append(float(sc["price_low"]))
+        highs.append(float(sc["price_high"]))
+    if not labels:
+        return None
+
+    plt = _setup_mpl()
+    out_dir = out_dir or CHARTS_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = _chart_path(out_dir, ticker, "scenario_ranges", name_tag)
+    spot = scenarios.get("spot_price")
+    colors = {"bear": "#c45c5c", "base": "#3d9b6e", "bull": "#5b8def"}
+    yerr = [[m - lo for m, lo in zip(mids, lows)], [hi - m for m, hi in zip(mids, highs)]]
+
+    fig, ax = plt.subplots(figsize=(7.4, 4.2))
+    bars = ax.bar(
+        labels,
+        mids,
+        yerr=yerr,
+        color=[colors.get(l, "#3d9b6e") for l in labels],
+        capsize=5,
+        error_kw={"ecolor": "#9bb0a4", "linewidth": 1.2},
+    )
+    if spot is not None:
+        ax.axhline(float(spot), color="#e8f0eb", linestyle="--", linewidth=1.2, label=f"Spot ${float(spot):.2f}")
+        ax.legend(frameon=False, labelcolor="#e8f0eb")
+    ax.set_ylabel("Share price range (USD)")
+    ax.set_title(f"{ticker.upper()} — Headwind/tailwind scenario ranges")
+    ax.grid(True, axis="y", alpha=0.35)
+    for bar, mid, lo, hi in zip(bars, mids, lows, highs):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            mid,
+            f"${mid:.2f}\n[{lo:.0f}–{hi:.0f}]",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            color="#e8f0eb",
+        )
+    fig.tight_layout()
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def chart_peer_normalized(
     ticker: str, peers: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
 ) -> Path | None:
@@ -271,6 +329,7 @@ def generate_research_charts(
     *,
     multiples: dict[str, Any] | None = None,
     peers: dict[str, Any] | None = None,
+    scenario_ranges: dict[str, Any] | None = None,
     name_tag: str = "",
 ) -> dict[str, Any]:
     """
@@ -291,6 +350,11 @@ def generate_research_charts(
             "ev_ebitda_scenarios",
             "EV/EBITDA scenario prices",
             lambda: chart_ev_ebitda_scenarios(ticker, multiples or {}, out_dir, tag),
+        ),
+        (
+            "scenario_ranges",
+            "Headwind/tailwind price ranges",
+            lambda: chart_scenario_ranges(ticker, scenario_ranges or {}, out_dir, tag),
         ),
         (
             "peers_normalized",

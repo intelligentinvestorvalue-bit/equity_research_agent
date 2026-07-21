@@ -98,6 +98,22 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
         lines.append(mult_md.rstrip())
         lines.append("")
 
+    if ctx.scenario_ranges is not None:
+        from src.scenario_ranges import format_scenario_ranges_markdown
+
+        scen_md = ctx.scenario_ranges.get("report_markdown") or format_scenario_ranges_markdown(
+            ctx.scenario_ranges
+        )
+        cite_bit = cite(f"{plan.ticker} scenario price ranges")
+        if cite_bit:
+            scen_md = scen_md.replace(
+                "## Scenario price ranges (headwinds & tailwinds)",
+                "## Scenario price ranges (headwinds & tailwinds)" + cite_bit,
+                1,
+            )
+        lines.append(scen_md.rstrip())
+        lines.append("")
+
     if ctx.peers is not None:
         from src.peers import format_peer_comps_markdown
 
@@ -310,6 +326,7 @@ def run_planned_research(
         ctx.valuation,
         multiples=ctx.multiples,
         peers=ctx.peers,
+        scenario_ranges=ctx.scenario_ranges,
         name_tag=getattr(plan, "template", "") or "",
     )
     ctx._charts_markdown = charts_markdown(charts_meta)  # type: ignore[attr-defined]
@@ -339,6 +356,23 @@ def run_planned_research(
                 "quant": quant,
                 "valuation": ctx.valuation,
                 "multiples": ctx.multiples,
+                "scenario_ranges": {
+                    "ok": (ctx.scenario_ranges or {}).get("ok"),
+                    "expected_mid": (ctx.scenario_ranges or {}).get("expected_mid"),
+                    "scenarios": {
+                        k: {
+                            "price_low": ((ctx.scenario_ranges or {}).get("scenarios") or {}).get(k, {}).get("price_low"),
+                            "price_mid": ((ctx.scenario_ranges or {}).get("scenarios") or {}).get(k, {}).get("price_mid"),
+                            "price_high": ((ctx.scenario_ranges or {}).get("scenarios") or {}).get(k, {}).get("price_high"),
+                            "probability": ((ctx.scenario_ranges or {}).get("scenarios") or {}).get(k, {}).get("probability"),
+                        }
+                        for k in ("bear", "base", "bull")
+                    },
+                    "headwind_count": len((ctx.scenario_ranges or {}).get("headwinds") or []),
+                    "tailwind_count": len((ctx.scenario_ranges or {}).get("tailwinds") or []),
+                }
+                if ctx.scenario_ranges
+                else None,
                 "memo": {"mode": (ctx.memo or {}).get("mode")} if ctx.memo else None,
                 "loop": loop_result,
                 "charts": charts_meta,

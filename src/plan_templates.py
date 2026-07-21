@@ -202,6 +202,15 @@ def valuation_sections(ticker: str, company: str | None = None, goal: str = "") 
             tools=["summarize_item_7"],
             notes="Management tone, guidance, and operational cues for scenarios",
         ),
+        PlanSection(
+            id="scenario_ranges",
+            title="(6) Headwind / tailwind price ranges",
+            tools=["build_scenario_ranges"],
+            notes=(
+                "Gemini/Perplexity-style medium-term bear/base/bull ranges: "
+                "map catalysts & risks → EBITDA/multiple paths → price bands"
+            ),
+        ),
     ]
 
 
@@ -332,6 +341,15 @@ def memo_sections(ticker: str, company: str | None = None, goal: str = "") -> li
             title="(7e) MD&A (Item 7)",
             tools=["summarize_item_7"],
             notes="Guidance cues and operating commentary",
+        ),
+        PlanSection(
+            id="scenario_ranges",
+            title="(7f) Headwind / tailwind price ranges",
+            tools=["build_scenario_ranges"],
+            notes=(
+                "Medium-term (18–36m) bear/base/bull price bands from catalysts & risks — "
+                "complements DCF, not a substitute"
+            ),
         ),
         PlanSection(
             id="drivers",

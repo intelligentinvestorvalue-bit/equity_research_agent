@@ -19,6 +19,8 @@ _TAB_RULES: list[tuple[str, str, str]] = [
     ("historical kpis", "fundamentals", "Fundamentals"),
     ("valuation — ev/ebitda", "multiples", "EV/EBITDA"),
     ("ev/ebitda", "multiples", "EV/EBITDA"),
+    ("scenario price ranges", "scenarios", "Scenarios"),
+    ("headwind", "scenarios", "Scenarios"),
     ("dcf valuation", "valuation", "DCF"),
     ("peer & factor", "peers", "Peers"),
     ("peer comps", "peers", "Peers"),

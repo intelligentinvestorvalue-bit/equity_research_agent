@@ -62,6 +62,7 @@ def _build_context(
     earnings: dict[str, Any] | None,
     filings_extra: dict[str, Any] | None,
     goal: str = "",
+    scenario_ranges: dict[str, Any] | None = None,
 ) -> str:
     fund = fund or {}
     snap = fund.get("snapshot") or {}
@@ -85,6 +86,20 @@ def _build_context(
     if valuation and valuation.get("scenarios"):
         for k, sc in (valuation.get("scenarios") or {}).items():
             parts.append(f"DCF {k} share_price={sc.get('share_price')}")
+    if scenario_ranges and scenario_ranges.get("scenarios"):
+        parts.append(
+            f"Driver scenario expected mid={scenario_ranges.get('expected_mid')} "
+            f"horizon={scenario_ranges.get('horizon')}"
+        )
+        for k, sc in (scenario_ranges.get("scenarios") or {}).items():
+            parts.append(
+                f"Driver scenario {k}: prob={sc.get('probability')} "
+                f"range={sc.get('price_low')}-{sc.get('price_high')} mid={sc.get('price_mid')}"
+            )
+        for h in (scenario_ranges.get("headwinds") or [])[:5]:
+            parts.append(f"Headwind: {h.get('theme')} — {h.get('signal')}")
+        for t in (scenario_ranges.get("tailwinds") or [])[:5]:
+            parts.append(f"Tailwind: {t.get('theme')} — {t.get('signal')}")
     if peers:
         parts.append(f"Peers: {', '.join(peers.get('peers') or [])}")
         for r in (peers.get("rows") or [])[:6]:
@@ -319,6 +334,7 @@ def draft_memo_sections(
     nlp_7: dict[str, Any] | None = None,
     earnings: dict[str, Any] | None = None,
     filings_extra: dict[str, Any] | None = None,
+    scenario_ranges: dict[str, Any] | None = None,
     goal: str = "",
 ) -> dict[str, Any]:
     ctx = _build_context(
@@ -334,6 +350,7 @@ def draft_memo_sections(
         earnings,
         filings_extra,
         goal=goal,
+        scenario_ranges=scenario_ranges,
     )
     mode = "rules"
     body = ""

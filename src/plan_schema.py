@@ -19,6 +19,7 @@ ToolName = Literal[
     "summarize_item_7",
     "run_dcf",
     "run_ev_ebitda",
+    "build_scenario_ranges",
     "get_peer_comps",
     "get_earnings",
     "fetch_recent_filings",
