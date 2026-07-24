@@ -38,15 +38,18 @@ If the phone cannot connect: same Wi‑Fi (not Guest), Windows Firewall allow TC
 
 Optional LAN PIN: set `ACCESS_PIN` in `.env`.
 
-### Remote access (Cloudflare + ntfy)
+### Keep-alive (auto-start on login)
 
-Keep the web app + tunnel up at Windows logon and every 30 minutes; push the public URL to your phone when it changes. Phone app: **ntfy by Philipp C. Heckel** only — see [CLOUDFLARE_TUNNEL.md](./CLOUDFLARE_TUNNEL.md).
+Starts the web app at Windows logon and re-checks every 15 minutes. Cursor does **not** need to stay open.
 
 ```powershell
-# .env: NTFY_TOPIC=...
 .\scripts\install_ensure_online.ps1
-.\scripts\ensure_online.ps1 -NotifyAlways
+.\scripts\ensure_online.ps1 -SkipTunnel   # test now (local only)
 ```
+
+- Local UI: http://127.0.0.1:8000  
+- Log: `data/ensure_online.log`  
+- Optional remote tunnel + ntfy: see [CLOUDFLARE_TUNNEL.md](./CLOUDFLARE_TUNNEL.md) (set `ENSURE_SKIP_TUNNEL=1` in `.env` while the tunnel is flaky).
 
 ## CLI
 

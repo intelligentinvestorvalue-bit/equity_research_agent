@@ -1,13 +1,13 @@
-# Install keep-alive: every N minutes ensure Equity Research Agent + tunnel are up,
-# and push a new trycloudflare URL to your phone via ntfy (when it changes).
+# Install keep-alive: start Equity Research Agent at logon and re-check every N minutes.
+# Cloudflare tunnel is optional (set ENSURE_SKIP_TUNNEL=1 in .env while tunnel is flaky).
 #
 # Usage:
 #   .\scripts\install_ensure_online.ps1
-#   .\scripts\install_ensure_online.ps1 -Minutes 30
+#   .\scripts\install_ensure_online.ps1 -Minutes 15
 #   .\scripts\install_ensure_online.ps1 -Uninstall
 
 param(
-  [int]$Minutes = 30,
+  [int]$Minutes = 15,
   [switch]$Uninstall
 )
 
@@ -59,20 +59,19 @@ Register-ScheduledTask `
   -Trigger @($atLogon, $repeat) `
   -Settings $settings `
   -Principal $principal `
-  -Description "Equity Research Agent: keep web UI + Cloudflare tunnel up; ntfy push when URL changes. Log: data\ensure_online.log" `
+  -Description "Equity Research Agent: keep web UI up at logon + every ${Minutes}m (tunnel optional). Log: data\ensure_online.log" `
   | Out-Null
 
 Write-Host "Installed scheduled task: $TaskName"
 Write-Host "  At logon + every $Minutes minutes while logged in."
 Write-Host "  Runs in the background via Task Scheduler - Cursor/IDE does NOT need to be open."
 Write-Host "  Log: $Root\data\ensure_online.log"
+Write-Host "  Local UI: http://127.0.0.1:8000"
 Write-Host ""
 Write-Host "Checklist:"
-Write-Host "  - .env has NTFY_TOPIC set (see CLOUDFLARE_TUNNEL.md)"
-Write-Host "  - Phone: install ntfy by Philipp C. Heckel and subscribe to that topic"
-Write-Host "  - Power: never sleep when plugged in"
-Write-Host "  - Test:  .\scripts\ensure_online.ps1"
-Write-Host "  - Force: .\scripts\ensure_online.ps1 -NotifyAlways"
+Write-Host "  - Power: never sleep when plugged in (Settings → System → Power)"
+Write-Host "  - Optional: ENSURE_SKIP_TUNNEL=1 in .env to skip Cloudflare while debugging"
+Write-Host "  - Test now:  .\scripts\ensure_online.ps1 -SkipTunnel"
 Write-Host "Remove later:"
 Write-Host "  .\scripts\install_ensure_online.ps1 -Uninstall"
 Write-Host ""

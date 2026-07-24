@@ -44,16 +44,30 @@ Subscribe to the exact `NTFY_TOPIC` from `.env`. You can reuse the **same topic*
 
 ## What the job does
 
-1. Health-check `:8000/health` — start uvicorn if down  
-2. Start Cloudflare quick tunnel to `:8000` if down  
+1. Health-check `:8000/health` — start uvicorn if down (**this is the keep-alive priority**)  
+2. Optionally start Cloudflare quick tunnel to `:8000`  
 3. ntfy push **only when** the public URL changes  
 
+Tunnel failures are **non-fatal**: if the local app is healthy, the job exits 0 even when Cloudflare is down.
+
+While the tunnel is flaky, skip it entirely:
+
+```powershell
+# one-shot
+.\scripts\ensure_online.ps1 -SkipTunnel
+
+# or permanently in .env
+ENSURE_SKIP_TUNNEL=1
+```
+
 Log: `data/ensure_online.log`  
-Task Scheduler name: **EquityResearch Ensure Online**
+Task Scheduler name: **EquityResearch Ensure Online**  
+Local UI: http://127.0.0.1:8000
 
 ## Manual commands
 
 ```powershell
+.\scripts\ensure_online.ps1 -SkipTunnel
 .\scripts\ensure_online.ps1
 .\scripts\ensure_online.ps1 -NotifyAlways
 .\scripts\run_tunnel.ps1
@@ -65,4 +79,4 @@ Task Scheduler name: **EquityResearch Ensure Online**
 
 - Quick-tunnel URL changes when `cloudflared` restarts (ntfy tells you the new link).
 - Laptop must stay awake and logged in.
-- If tunnel log shows `tls: access denied` to `api.trycloudflare.com`, the network is blocking Cloudflare quick tunnels (try hotspot / disable VPN).
+- If tunnel log shows `tls: access denied` to `api.trycloudflare.com`, the network is blocking Cloudflare quick tunnels (try hotspot / disable VPN). Use `-SkipTunnel` / `ENSURE_SKIP_TUNNEL=1` until that is fixed.

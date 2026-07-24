@@ -1,13 +1,15 @@
-# Keep Equity Research Agent + Cloudflare tunnel online; ntfy push when URL changes.
+# Keep Equity Research Agent online (local web UI). Cloudflare tunnel is optional.
 #
 # Usage:
 #   .\scripts\ensure_online.ps1
+#   .\scripts\ensure_online.ps1 -SkipTunnel          # app keep-alive only (recommended while tunnel is flaky)
 #   .\scripts\ensure_online.ps1 -NotifyAlways
 #
 # Schedule: .\scripts\install_ensure_online.ps1
 
 param(
-  [switch]$NotifyAlways
+  [switch]$NotifyAlways,
+  [switch]$SkipTunnel
 )
 
 $ErrorActionPreference = "Continue"
@@ -82,6 +84,16 @@ function Start-AppServer([int]$Port) {
     Remove-Item -Force -ErrorAction SilentlyContinue $PidFile
   }
 
+  # Also free anything else listening on the port (orphan uvicorn)
+  try {
+    $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    foreach ($c in $listeners) {
+      Write-EnsureLog "Stopping orphan listener pid $($c.OwningProcess) on port $Port"
+      Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
+    if ($listeners) { Start-Sleep -Seconds 1 }
+  } catch { }
+
   Remove-Item -Force -ErrorAction SilentlyContinue $ServerOut, $ServerErr
   Write-EnsureLog "Starting Equity Research Agent on port $Port (background)"
 
@@ -148,6 +160,12 @@ function Send-Ntfy([string]$Url) {
 
 Import-DotEnv
 
+# Prefer SkipTunnel from switch, else .env ENSURE_SKIP_TUNNEL=1|true|yes
+if (-not $SkipTunnel) {
+  $skipEnv = ($env:ENSURE_SKIP_TUNNEL -as [string])
+  if ($skipEnv -match '^(1|true|yes)$') { $SkipTunnel = $true }
+}
+
 # Project default is 8000; ignore a foreign PORT left in the shell (e.g. PodSnip 8787)
 # unless this repo's .env explicitly set PORT during Import-DotEnv.
 $port = 8000
@@ -159,37 +177,48 @@ if (Test-Path $envFile) {
   }
 }
 
-Write-EnsureLog "ensure_online check (port $port)"
+Write-EnsureLog "ensure_online check (port $port; skip_tunnel=$SkipTunnel)"
 
+$appOk = $false
 if (Test-AppHealthy $port) {
   Write-EnsureLog "App OK"
+  $appOk = $true
 } else {
   Write-EnsureLog "App down - starting"
-  if (-not (Start-AppServer $port)) {
+  if (Start-AppServer $port) {
+    $appOk = $true
+  } else {
     Write-EnsureLog "ABORT: could not start app"
     exit 1
   }
 }
 
+if ($SkipTunnel) {
+  Write-EnsureLog "Tunnel skipped (app keep-alive only). Local UI: http://127.0.0.1:${port}"
+  exit 0
+}
+
+# Tunnel is best-effort: never fail the job if the local app is healthy.
 if ((Test-TunnelAlive) -and (Test-Path $UrlFile)) {
   Write-EnsureLog ("Tunnel OK: {0}" -f (Get-Content $UrlFile -Raw).Trim())
 } else {
-  Write-EnsureLog "Tunnel down or missing URL - starting"
+  Write-EnsureLog "Tunnel down or missing URL - starting (best-effort)"
   & "$Root\scripts\run_tunnel.ps1"
   if ($LASTEXITCODE -ne 0) {
-    Write-EnsureLog "ERROR: run_tunnel.ps1 failed (exit $LASTEXITCODE)"
+    Write-EnsureLog "WARN: tunnel failed (exit $LASTEXITCODE) - local app remains up at http://127.0.0.1:${port}"
+    if ($appOk) { exit 0 }
     exit 1
   }
 }
 
 if (-not (Test-Path $UrlFile)) {
-  Write-EnsureLog "WARN: no tunnel URL file yet"
+  Write-EnsureLog "WARN: no tunnel URL file yet - local app remains up"
   exit 0
 }
 
 $url = (Get-Content $UrlFile -Raw).Trim()
 if (-not $url) {
-  Write-EnsureLog "WARN: empty tunnel URL"
+  Write-EnsureLog "WARN: empty tunnel URL - local app remains up"
   exit 0
 }
 
