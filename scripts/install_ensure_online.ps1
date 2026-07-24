@@ -33,7 +33,7 @@ if ($Minutes -lt 2) {
 
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
-$arg = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$WatchScript`""
+$arg = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$WatchScript`" -SkipTunnel"
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg -WorkingDirectory $Root
 
 $start = (Get-Date).AddMinutes(1)
@@ -64,15 +64,12 @@ Register-ScheduledTask `
 
 Write-Host "Installed scheduled task: $TaskName"
 Write-Host "  At logon + every $Minutes minutes while logged in."
-Write-Host "  Runs in the background via Task Scheduler - Cursor/IDE does NOT need to be open."
+Write-Host "  Keep-alive only (tunnel skipped). Cursor/IDE does NOT need to be open."
 Write-Host "  Log: $Root\data\ensure_online.log"
 Write-Host "  Local UI: http://127.0.0.1:8000"
 Write-Host ""
 Write-Host "Checklist:"
-Write-Host "  - Power: never sleep when plugged in (Settings → System → Power)"
-Write-Host "  - Optional: ENSURE_SKIP_TUNNEL=1 in .env to skip Cloudflare while debugging"
+Write-Host "  - Power: never sleep when plugged in (Settings -> System -> Power)"
 Write-Host "  - Test now:  .\scripts\ensure_online.ps1 -SkipTunnel"
 Write-Host "Remove later:"
 Write-Host "  .\scripts\install_ensure_online.ps1 -Uninstall"
-Write-Host ""
-Write-Host "Docs: CLOUDFLARE_TUNNEL.md"
