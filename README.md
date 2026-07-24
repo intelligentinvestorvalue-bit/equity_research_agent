@@ -38,6 +38,16 @@ If the phone cannot connect: same Wi‑Fi (not Guest), Windows Firewall allow TC
 
 Optional LAN PIN: set `ACCESS_PIN` in `.env`.
 
+### Remote access (Cloudflare + ntfy)
+
+Keep the web app + tunnel up at Windows logon and every 30 minutes; push the public URL to your phone when it changes. Phone app: **ntfy by Philipp C. Heckel** only — see [CLOUDFLARE_TUNNEL.md](./CLOUDFLARE_TUNNEL.md).
+
+```powershell
+# .env: NTFY_TOPIC=...
+.\scripts\install_ensure_online.ps1
+.\scripts\ensure_online.ps1 -NotifyAlways
+```
+
 ## CLI
 
 ```powershell
