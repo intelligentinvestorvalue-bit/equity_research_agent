@@ -210,6 +210,26 @@ def fetch_fundamentals(ticker: str) -> dict[str, Any]:
         lt_debt = total_debt - (st_debt or 0.0)
     equity = _safe_get(balance, "Stockholders Equity", "Total Stockholder Equity", "Common Stock Equity")
     cash = _safe_get(balance, "Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments")
+    current_assets = _safe_get(balance, "Current Assets", "Total Current Assets")
+    current_liabilities = _safe_get(
+        balance,
+        "Current Liabilities",
+        "Total Current Liabilities",
+        "Current Liabilities And Other",
+    )
+    total_assets = _safe_get(balance, "Total Assets")
+    total_liabilities = _safe_get(
+        balance,
+        "Total Liabilities Net Minority Interest",
+        "Total Liab",
+        "Total Liabilities",
+    )
+    retained_earnings = _safe_get(balance, "Retained Earnings")
+    working_capital = _safe_get(balance, "Working Capital")
+    if working_capital is None and current_assets is not None and current_liabilities is not None:
+        working_capital = current_assets - current_liabilities
+    if total_liabilities is None and total_assets is not None and equity is not None:
+        total_liabilities = total_assets - equity
     operating_cf = _safe_get(cashflow, "Operating Cash Flow", "Total Cash From Operating Activities")
     capex = _safe_get(cashflow, "Capital Expenditure", "Capital Expenditures")
     market_cap = _to_float(info.get("marketCap"))
@@ -327,6 +347,17 @@ def fetch_fundamentals(ticker: str) -> dict[str, Any]:
         "ebitda": ebitda,
         "net_debt_to_ebitda": net_debt_ebitda,
         "debt_to_equity": compute_debt_to_equity(total_debt, equity),
+        "current_assets": current_assets,
+        "current_liabilities": current_liabilities,
+        "total_assets": total_assets,
+        "total_liabilities": total_liabilities,
+        "retained_earnings": retained_earnings,
+        "working_capital": working_capital,
+        "current_ratio": (
+            (current_assets / current_liabilities)
+            if current_assets is not None and current_liabilities not in (None, 0)
+            else None
+        ),
     }
 
     profile = {
@@ -385,6 +416,12 @@ def fetch_fundamentals(ticker: str) -> dict[str, Any]:
             "operating_cf": operating_cf,
             "capex": capex,
             "enterprise_value": enterprise_value,
+            "current_assets": current_assets,
+            "current_liabilities": current_liabilities,
+            "total_assets": total_assets,
+            "total_liabilities": total_liabilities,
+            "retained_earnings": retained_earnings,
+            "working_capital": working_capital,
         },
         "statements_available": {
             "income_cols": list(income.columns.astype(str)) if isinstance(income, pd.DataFrame) and not income.empty else [],
@@ -580,6 +617,11 @@ def format_fundamentals_markdown(fund: dict[str, Any], heading: str = "## Fundam
         f"- Total debt: {_fmt_money(_to_float(cap.get('total_debt')))}",
         f"- Net debt: {_fmt_money(_to_float(cap.get('net_debt')))}",
         f"- Net debt / EBITDA: {_fmt_multiple(_to_float(cap.get('net_debt_to_ebitda')))}",
+        f"- Working capital: {_fmt_money(_to_float(cap.get('working_capital')))}",
+        f"- Total assets: {_fmt_money(_to_float(cap.get('total_assets')))}",
+        f"- Total liabilities: {_fmt_money(_to_float(cap.get('total_liabilities')))}",
+        f"- Retained earnings: {_fmt_money(_to_float(cap.get('retained_earnings')))}",
+        f"- Current ratio: {_fmt_multiple(_to_float(cap.get('current_ratio')))}",
         "",
         "### Growth",
         f"- Revenue CAGR: {_fmt_pct(_to_float(growth.get('revenue_cagr')))}",

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Research queue</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20260728" />
+</head>
+<body>
+  {% set active_nav = active_nav or 'queue' %}
+  {% include "partials/nav.html" %}
+  <main class="wrap wide">
+    <header>
+      <p class="brand">Overnight queue</p>
+      <p class="sub">Add many tickers — the app runs them one after another (no plan approval)</p>
+    </header>
+
+    {% if error %}
+    <p class="banner error">{{ error }}</p>
+    {% endif %}
+
+    <p class="status {% if ollama_up %}ok{% else %}warn{% endif %}">
+      {% if ollama_up %}Ollama up · model {{ model }}{% else %}Ollama offline · template plan + rule-based NLP{% endif %}
+    </p>
+
+    <div class="queue-summary" id="queue-summary" data-paused="{{ '1' if summary.paused else '0' }}">
+      <span class="qchip {% if summary.paused %}warn{% else %}ok{% endif %}" id="q-state">
+        {% if summary.paused %}Paused{% else %}Running{% endif %}
+      </span>
+      <span class="qchip">Pending {{ summary.pending }}</span>
+      <span class="qchip">Running {{ summary.running }}</span>
+      <span class="qchip">Done {{ summary.completed }}</span>
+      <span class="qchip">Failed {{ summary.failed }}</span>
+    </div>
+
+    <form class="card-form" method="post" action="/queue">
+      <label for="tickers">Tickers</label>
+      <textarea id="tickers" name="tickers" rows="5" required
+                placeholder="AAPL&#10;MSFT, GOOGL&#10;UUUU NVDA"></textarea>
+      <p class="fine">One per line, or comma/space separated. Duplicates in this batch are skipped.</p>
+
+      <label for="template">Research template</label>
+      <select id="template" name="template">
+        {% for t in templates %}
+        <option value="{{ t.id }}" {% if t.id == 'memo' %}selected{% endif %}>{{ t.label }}</option>
+        {% endfor %}
+      </select>
+      <p class="fine" id="template-hint"></p>
+
+      <label for="goal">Research goal (optional — applied to every ticker)</label>
+      <input id="goal" name="goal" type="text" maxlength="240"
+             placeholder="e.g. institutional deep dive; catalysts &amp; falsifiers" />
+
+      <label for="mode">Mode</label>
+      <select id="mode" name="mode">
+        <option value="deep" selected>Deep</option>
+        <option value="fast">Fast</option>
+      </select>
+
+      <label class="check">
+        <input type="checkbox" name="from_scratch" value="on" id="from_scratch" />
+        Re-run from scratch <span class="muted">(clear cache per ticker before each run)</span>
+      </label>
+
+      {% if pin_required %}
+      <label for="pin">PIN</label>
+      <input id="pin" name="pin" type="password" inputmode="numeric" />
+      {% endif %}
+
+      <button type="submit">Add to queue</button>
+    </form>
+
+    <div class="queue-controls row">
+      {% if summary.paused %}
+      <form method="post" action="/queue/resume" class="queue-ctrl">
+        {% if pin_required %}
+        <label class="fine" for="pin-resume">PIN</label>
+        <input id="pin-resume" name="pin" type="password" inputmode="numeric" required />
+        {% endif %}
+        <button type="submit" class="btn-secondary">Resume queue</button>
+      </form>
+      {% else %}
+      <form method="post" action="/queue/pause" class="queue-ctrl">
+        {% if pin_required %}
+        <label class="fine" for="pin-pause">PIN</label>
+        <input id="pin-pause" name="pin" type="password" inputmode="numeric" required />
+        {% endif %}
+        <button type="submit" class="btn-secondary">Pause after current</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/queue/cancel-pending" class="queue-ctrl"
+            onsubmit="return confirm('Cancel all pending tickers?');">
+        {% if pin_required %}
+        <label class="fine" for="pin-cancel">PIN</label>
+        <input id="pin-cancel" name="pin" type="password" inputmode="numeric" required />
+        {% endif %}
+        <button type="submit" class="btn-secondary">Cancel pending</button>
+      </form>
+      <form method="post" action="/queue/clear-finished" class="queue-ctrl"
+            onsubmit="return confirm('Clear completed / failed / cancelled rows?');">
+        {% if pin_required %}
+        <label class="fine" for="pin-clear">PIN</label>
+        <input id="pin-clear" name="pin" type="password" inputmode="numeric" required />
+        {% endif %}
+        <button type="submit" class="btn-secondary">Clear finished</button>
+      </form>
+    </div>
+
+    <section class="queue-list">
+      <p class="scenario-label">Queue</p>
+      <div class="table-scroll">
+        <table class="queue-table" id="queue-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Ticker</th>
+              <th>Template</th>
+              <th>Status</th>
+              <th>Job</th>
+            </tr>
+          </thead>
+          <tbody id="queue-body">
+            {% for i in items %}
+            <tr class="q-{{ i.status }}">
+              <td>{{ i.position }}</td>
+              <td><strong>{{ i.ticker }}</strong>{% if i.from_scratch %} <span class="muted">scratch</span>{% endif %}</td>
+              <td>{{ i.template }}</td>
+              <td>
+                <span class="qstatus q-{{ i.status }}">{{ i.status }}</span>
+                {% if i.error %}<div class="fine error-text">{{ i.error }}</div>{% endif %}
+              </td>
+              <td>
+                {% if i.job_href %}
+                <a class="link" href="{{ i.job_href }}">Open</a>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="muted">Queue is empty. Add tickers above.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="fine">Queue survives app restarts: interrupted items are re-queued. Keep the PC awake (or use Task Scheduler keep-alive). Not investment advice.</p>
+  </main>
+  <script>
+    const hints = {
+      {% for t in templates %}
+      "{{ t.id }}": {{ t.description|tojson }},
+      {% endfor %}
+    };
+    const sel = document.getElementById("template");
+    const hint = document.getElementById("template-hint");
+    function syncHint() { hint.textContent = hints[sel.value] || ""; }
+    sel.addEventListener("change", syncHint);
+    syncHint();
+
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function render(data) {
+      const s = data.summary || {};
+      const state = document.getElementById("q-state");
+      if (state) {
+        state.textContent = s.paused ? "Paused" : "Running";
+        state.className = "qchip " + (s.paused ? "warn" : "ok");
+      }
+      const summary = document.getElementById("queue-summary");
+      if (summary) {
+        const chips = summary.querySelectorAll(".qchip");
+        // state, pending, running, done, failed
+        if (chips[1]) chips[1].textContent = "Pending " + (s.pending || 0);
+        if (chips[2]) chips[2].textContent = "Running " + (s.running || 0);
+        if (chips[3]) chips[3].textContent = "Done " + (s.completed || 0);
+        if (chips[4]) chips[4].textContent = "Failed " + (s.failed || 0);
+      }
+      const body = document.getElementById("queue-body");
+      if (!body) return;
+      const items = data.items || [];
+      if (!items.length) {
+        body.innerHTML = '<tr><td colspan="5" class="muted">Queue is empty. Add tickers above.</td></tr>';
+        return;
+      }
+      body.innerHTML = items.map(i => {
+        const err = i.error ? '<div class="fine error-text">' + esc(i.error) + '</div>' : '';
+        const job = i.job_href
+          ? '<a class="link" href="' + esc(i.job_href) + '">Open</a>'
+          : '—';
+        const scratch = i.from_scratch ? ' <span class="muted">scratch</span>' : '';
+        return '<tr class="q-' + esc(i.status) + '">'
+          + '<td>' + esc(i.position) + '</td>'
+          + '<td><strong>' + esc(i.ticker) + '</strong>' + scratch + '</td>'
+          + '<td>' + esc(i.template) + '</td>'
+          + '<td><span class="qstatus q-' + esc(i.status) + '">' + esc(i.status) + '</span>' + err + '</td>'
+          + '<td>' + job + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    async function poll() {
+      try {
+        const r = await fetch('/api/queue');
+        if (r.ok) render(await r.json());
+      } catch (e) { /* ignore */ }
+    }
+    setInterval(poll, 4000);
+  </script>
+</body>
+</html>

@@ -28,7 +28,7 @@ Return ONLY JSON:
   ]
 }}
 
-Allowed tools: search_web, get_fundamentals, run_dcf, run_ev_ebitda, build_scenario_ranges, get_peer_comps, get_earnings, fetch_10k, summarize_item_1, fetch_recent_filings, analyze_drivers, draft_memo_sections, screen_puts
+Allowed tools: search_web, get_fundamentals, run_dcf, run_ev_ebitda, build_scenario_ranges, run_altman_z, get_peer_comps, get_earnings, fetch_10k, summarize_item_1, fetch_recent_filings, analyze_drivers, draft_memo_sections, screen_puts
 Max 2 actions. Prefer search_web for missing analyst targets or drivers.
 If coverage is adequate, set done=true and actions=[].
 
@@ -59,6 +59,9 @@ def _state_snapshot(plan: ResearchPlan, ctx: ToolContext) -> dict[str, Any]:
         "ev_ebitda_base": mbase.get("share_price"),
         "has_scenario_ranges": bool((ctx.scenario_ranges or {}).get("ok")),
         "scenario_expected_mid": (ctx.scenario_ranges or {}).get("expected_mid"),
+        "has_altman": bool((ctx.altman or {}).get("ok")),
+        "altman_z": (ctx.altman or {}).get("z"),
+        "altman_zone": (ctx.altman or {}).get("zone"),
         "has_peers": bool((ctx.peers or {}).get("rows")),
         "has_earnings": bool((ctx.earnings or {}).get("rows")),
         "has_memo": bool((ctx.memo or {}).get("markdown")),

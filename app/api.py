@@ -22,6 +22,8 @@ from src.plan_schema import ResearchPlan
 from src.plan_templates import list_templates
 from src.planner import apply_plan_edits, generate_plan
 from src.report_tabs import build_report_tabs, job_href
+from src.research_queue import QueueWorker, queue_store
+import src.research_queue as research_queue_mod
 from src.sync_store import export_all_completed, export_job_id, import_all_sync_jobs
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,58 @@ def _sync_on_startup() -> None:
     except Exception:  # noqa: BLE001
         logger.exception("Startup sync import failed")
 
+    # Daemon worker threads die with the process; mark in-flight jobs failed so the UI is not stuck.
+    try:
+        n = _fail_orphaned_jobs()
+        if n:
+            logger.info("Marked %s orphaned in-flight job(s) as failed on startup", n)
+    except Exception:  # noqa: BLE001
+        logger.exception("Orphan job cleanup failed")
+
+    # Re-queue interrupted overnight items, then start the sequential worker.
+    try:
+        rq = queue_store.reset_interrupted()
+        if rq:
+            logger.info("Re-queued %s interrupted research-queue item(s)", rq)
+        research_queue_mod.queue_worker = QueueWorker(
+            queue_store,
+            start_job=_start_job_flow,
+            get_job=job_store.get,
+            poll_seconds=5.0,
+        )
+        research_queue_mod.queue_worker.start()
+    except Exception:  # noqa: BLE001
+        logger.exception("Research queue worker failed to start")
+
+
+def _fail_orphaned_jobs() -> int:
+    """Fail jobs left in running/planning/queued after a process restart."""
+    now = datetime.now(timezone.utc).isoformat()
+    count = 0
+    for j in job_store.list_recent(200):
+        if j.status not in {"running", "planning", "queued"}:
+            continue
+        msg = (
+            f"Interrupted by app restart while {j.status}"
+            + (f" ({j.stage}: {j.message})" if j.stage or j.message else "")
+            + ". Re-run the ticker to continue."
+        )
+        job_store.update(
+            j.id,
+            status="failed",
+            stage="error",
+            message=msg,
+            error=msg,
+            finished_at=now,
+        )
+        try:
+            job_store.append_thought(j.id, "gap", msg)
+        except Exception:  # noqa: BLE001
+            pass
+        _export_job_sync(j.id)
+        count += 1
+    return count
+
 
 def _export_job_sync(job_id: str) -> None:
     try:
@@ -58,6 +112,7 @@ class ResearchRequest(BaseModel):
     goal: str = ""
     template: str = "auto"
     collaborative: bool = True
+    from_scratch: bool = False
     pin: str | None = None
 
 
@@ -260,14 +315,26 @@ def _start_job_flow(
     goal: str,
     collaborative: bool,
     template: str = "auto",
+    from_scratch: bool = False,
 ) -> str:
     mode = "fast" if mode == "fast" else "deep"
     from src.plan_templates import resolve_template_id
+
+    ticker = (ticker or "").upper().strip()
+    scratch_note = ""
+    if from_scratch:
+        from src.fresh_run import clear_ticker_cache
+
+        cleared = clear_ticker_cache(ticker)
+        scratch_note = f"From scratch: cleared {cleared.get('count', 0)} cached file(s). "
+        logger.info("from_scratch %s → %s", ticker, cleared)
 
     tid = resolve_template_id(template, goal=goal, mode=mode)
     # Full pack always auto-runs (no multi-plan approval UX)
     if tid == "all":
         job = job_store.create(ticker, mode, goal=goal, collaborative=False, template="all")
+        if scratch_note:
+            job_store.update(job.id, message=scratch_note + "Starting full pack…", stage="queued")
         threading.Thread(target=_run_pack_job, args=(job.id,), daemon=True).start()
         return job.id
 
@@ -275,6 +342,12 @@ def _start_job_flow(
     job = job_store.create(
         ticker, mode, goal=goal, collaborative=collab, template=template or "auto"
     )
+    if scratch_note:
+        job_store.update(
+            job.id,
+            message=scratch_note + ("Planning…" if collab else "Starting…"),
+            stage="queued",
+        )
     if collab:
         _plan_job(job.id)
     else:
@@ -298,8 +371,9 @@ def _job_card(j: Any) -> dict[str, Any]:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request, ticker: str = "") -> Any:
+async def home(request: Request, ticker: str = "", from_scratch: str = "") -> Any:
     recent = [_job_card(j) for j in job_store.list_recent(8)]
+    scratch = (from_scratch or "").lower() in {"1", "true", "yes", "on"}
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -311,6 +385,7 @@ async def home(request: Request, ticker: str = "") -> Any:
             "recent_jobs": recent,
             "active_nav": "research",
             "prefill_ticker": (ticker or "").strip().upper(),
+            "from_scratch": scratch,
         },
     )
 
@@ -362,6 +437,189 @@ async def dashboard(
     )
 
 
+class QueueAddRequest(BaseModel):
+    tickers: str = Field(..., min_length=1, description="Tickers separated by newline, comma, or space")
+    template: str = "memo"
+    mode: str = Field(default="deep", pattern="^(fast|deep|comprehensive)$")
+    goal: str = ""
+    from_scratch: bool = False
+    pin: str | None = None
+
+
+class QueueControlRequest(BaseModel):
+    pin: str | None = None
+
+
+def _queue_kick() -> None:
+    w = research_queue_mod.queue_worker
+    if w:
+        w.kick()
+
+
+@app.get("/queue", response_class=HTMLResponse)
+async def queue_page(request: Request) -> Any:
+    return templates.TemplateResponse(
+        request,
+        "queue.html",
+        {
+            "ollama_up": ollama_available(),
+            "model": settings.ollama_model,
+            "pin_required": bool(settings.access_pin),
+            "templates": list_templates(),
+            "summary": queue_store.summary(),
+            "items": [i.to_dict() for i in queue_store.list_items(limit=200)],
+            "active_nav": "queue",
+        },
+    )
+
+
+@app.get("/api/queue")
+async def api_queue_status() -> dict[str, Any]:
+    return {
+        "summary": queue_store.summary(),
+        "items": [i.to_dict() for i in queue_store.list_items(limit=200)],
+    }
+
+
+@app.post("/api/queue")
+async def api_queue_add(body: QueueAddRequest) -> dict[str, Any]:
+    _check_pin(body.pin)
+    created = queue_store.add_tickers(
+        body.tickers,
+        template=body.template or "memo",
+        mode=body.mode,
+        goal=body.goal or "",
+        from_scratch=body.from_scratch,
+    )
+    if not created:
+        raise HTTPException(status_code=400, detail="No valid tickers found")
+    # Ensure worker is not paused when user adds work
+    if queue_store.get_paused():
+        queue_store.set_paused(False)
+    _queue_kick()
+    return {
+        "added": len(created),
+        "tickers": [c.ticker for c in created],
+        "summary": queue_store.summary(),
+        "items": [i.to_dict() for i in queue_store.list_items(limit=200)],
+    }
+
+
+@app.post("/queue", response_class=HTMLResponse)
+async def queue_add_form(
+    request: Request,
+    tickers: str = Form(...),
+    template: str = Form("memo"),
+    mode: str = Form("deep"),
+    goal: str = Form(""),
+    from_scratch: str | None = Form(None),
+    pin: str | None = Form(None),
+) -> Any:
+    try:
+        _check_pin(pin)
+        created = queue_store.add_tickers(
+            tickers,
+            template=template or "memo",
+            mode=mode,
+            goal=goal or "",
+            from_scratch=(from_scratch or "").lower() in {"on", "1", "true", "yes"},
+        )
+        if not created:
+            raise HTTPException(status_code=400, detail="No valid tickers found")
+        if queue_store.get_paused():
+            queue_store.set_paused(False)
+        _queue_kick()
+    except HTTPException as exc:
+        return templates.TemplateResponse(
+            request,
+            "queue.html",
+            {
+                "ollama_up": ollama_available(),
+                "model": settings.ollama_model,
+                "pin_required": bool(settings.access_pin),
+                "templates": list_templates(),
+                "summary": queue_store.summary(),
+                "items": [i.to_dict() for i in queue_store.list_items(limit=200)],
+                "active_nav": "queue",
+                "error": exc.detail,
+            },
+            status_code=exc.status_code,
+        )
+    return RedirectResponse(url="/queue", status_code=303)
+
+
+@app.post("/api/queue/pause")
+async def api_queue_pause(body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    queue_store.set_paused(True)
+    return {"summary": queue_store.summary()}
+
+
+@app.post("/api/queue/resume")
+async def api_queue_resume(body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    queue_store.set_paused(False)
+    _queue_kick()
+    return {"summary": queue_store.summary()}
+
+
+@app.post("/api/queue/cancel-pending")
+async def api_queue_cancel_pending(body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    n = queue_store.cancel_all_pending()
+    return {"cancelled": n, "summary": queue_store.summary(), "items": [i.to_dict() for i in queue_store.list_items(limit=200)]}
+
+
+@app.post("/api/queue/clear-finished")
+async def api_queue_clear_finished(body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    n = queue_store.clear_finished()
+    return {"cleared": n, "summary": queue_store.summary(), "items": [i.to_dict() for i in queue_store.list_items(limit=200)]}
+
+
+@app.post("/api/queue/{item_id}/cancel")
+async def api_queue_cancel_item(item_id: str, body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    ok = queue_store.cancel(item_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Pending item not found")
+    return {"cancelled": True, "summary": queue_store.summary()}
+
+
+@app.post("/queue/pause")
+async def queue_pause_form(pin: str | None = Form(None)) -> RedirectResponse:
+    _check_pin(pin)
+    queue_store.set_paused(True)
+    return RedirectResponse(url="/queue", status_code=303)
+
+
+@app.post("/queue/resume")
+async def queue_resume_form(pin: str | None = Form(None)) -> RedirectResponse:
+    _check_pin(pin)
+    queue_store.set_paused(False)
+    _queue_kick()
+    return RedirectResponse(url="/queue", status_code=303)
+
+
+@app.post("/queue/cancel-pending")
+async def queue_cancel_pending_form(pin: str | None = Form(None)) -> RedirectResponse:
+    _check_pin(pin)
+    queue_store.cancel_all_pending()
+    return RedirectResponse(url="/queue", status_code=303)
+
+
+@app.post("/queue/clear-finished")
+async def queue_clear_finished_form(pin: str | None = Form(None)) -> RedirectResponse:
+    _check_pin(pin)
+    queue_store.clear_finished()
+    return RedirectResponse(url="/queue", status_code=303)
+
+
 @app.get("/health")
 async def health() -> dict[str, Any]:
     from src.sync_store import JOBS_DIR, ensure_sync_dirs
@@ -395,11 +653,21 @@ async def sync_export() -> dict[str, Any]:
 async def start_research(body: ResearchRequest) -> dict[str, Any]:
     _check_pin(body.pin)
     job_id = _start_job_flow(
-        body.ticker, body.mode, body.goal or "", body.collaborative, template=body.template or "auto"
+        body.ticker,
+        body.mode,
+        body.goal or "",
+        body.collaborative,
+        template=body.template or "auto",
+        from_scratch=bool(body.from_scratch),
     )
     job = job_store.get(job_id)
     assert job
-    return {"job_id": job.id, "status": job.status, "collaborative": job.collaborative}
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "collaborative": job.collaborative,
+        "from_scratch": bool(body.from_scratch),
+    }
 
 
 @app.post("/research", response_class=HTMLResponse)
@@ -410,6 +678,7 @@ async def start_research_form(
     goal: str = Form(""),
     template: str = Form("auto"),
     collaborative: str | None = Form(None),
+    from_scratch: str | None = Form(None),
     pin: str = Form(""),
 ) -> Any:
     try:
@@ -426,12 +695,17 @@ async def start_research_form(
                 "templates": list_templates(),
                 "recent_jobs": [],
                 "active_nav": "research",
+                "prefill_ticker": (ticker or "").strip().upper(),
+                "from_scratch": (from_scratch or "").lower() in {"on", "true", "1", "yes"},
             },
             status_code=401,
         )
     # Checkbox omitted from POST when unchecked
     collab = (collaborative or "").lower() in {"on", "true", "1", "yes"}
-    job_id = _start_job_flow(ticker, mode, goal, collab, template=template or "auto")
+    scratch = (from_scratch or "").lower() in {"on", "true", "1", "yes"}
+    job_id = _start_job_flow(
+        ticker, mode, goal, collab, template=template or "auto", from_scratch=scratch
+    )
     job = job_store.get(job_id)
     assert job
     if job.collaborative:

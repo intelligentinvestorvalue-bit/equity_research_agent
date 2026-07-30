@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{{ ticker }} report</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260729" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
@@ -22,6 +22,7 @@
       <div class="actions">
         <a class="btn secondary" href="/jobs/{{ job_id }}/report.md">Download .md</a>
         <a class="btn secondary" href="/equities/{{ ticker }}">Equity menu</a>
+        <a class="btn secondary" href="/?ticker={{ ticker }}&amp;from_scratch=1">Re-run from scratch</a>
         <a class="btn secondary" href="/dashboard">Dashboard</a>
         <a class="btn secondary" href="/">New</a>
       </div>

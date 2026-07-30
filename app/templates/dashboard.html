@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Dashboard · Equity Research</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260724" />
 </head>
 <body>
   {% include "partials/nav.html" %}
@@ -75,7 +75,8 @@
             <td class="muted">{{ j.created_at[:16].replace('T', ' ') }}</td>
             <td class="dash-actions">
               {% if j.status == 'completed' %}
-              <a class="btn secondary compact" href="{{ j.href }}">Open report</a>
+              <a class="btn secondary compact" href="{{ j.href }}">Open</a>
+              <a class="btn secondary compact" href="/?ticker={{ j.ticker }}&amp;from_scratch=1">Re-run</a>
               {% elif j.status in ['planning', 'awaiting_approval'] %}
               <a class="btn secondary compact" href="{{ j.href }}">Review plan</a>
               {% else %}

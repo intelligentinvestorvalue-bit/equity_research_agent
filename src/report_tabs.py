@@ -21,6 +21,8 @@ _TAB_RULES: list[tuple[str, str, str]] = [
     ("ev/ebitda", "multiples", "EV/EBITDA"),
     ("scenario price ranges", "scenarios", "Scenarios"),
     ("headwind", "scenarios", "Scenarios"),
+    ("altman z", "altman", "Altman Z"),
+    ("bankruptcy risk", "altman", "Altman Z"),
     ("dcf valuation", "valuation", "DCF"),
     ("peer & factor", "peers", "Peers"),
     ("peer comps", "peers", "Peers"),

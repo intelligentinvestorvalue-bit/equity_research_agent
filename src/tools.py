@@ -42,6 +42,7 @@ class ToolContext:
         self.valuation: dict[str, Any] | None = None
         self.multiples: dict[str, Any] | None = None
         self.scenario_ranges: dict[str, Any] | None = None
+        self.altman: dict[str, Any] | None = None
         self.peers: dict[str, Any] | None = None
         self.earnings: dict[str, Any] | None = None
         self.filings_extra: dict[str, Any] | None = None
@@ -303,6 +304,33 @@ def tool_build_scenario_ranges(ctx: ToolContext) -> dict[str, Any]:
     return result
 
 
+def tool_run_altman_z(ctx: ToolContext) -> dict[str, Any]:
+    from src.altman import compute_altman_z
+
+    if ctx.fundamentals is None:
+        tool_get_fundamentals(ctx)
+    ctx.progress("altman", f"Computing Altman Z-score for {ctx.ticker}")
+    result = compute_altman_z(ctx.fundamentals)
+    ctx.altman = result
+    ctx.evidence.add(
+        source="altman",
+        title=f"{ctx.ticker} Altman Z-score",
+        summary=(
+            f"ok={result.get('ok')}; model={result.get('primary_model')}; "
+            f"Z={result.get('z')}; zone={result.get('zone')}"
+        ),
+        meta={
+            "ok": result.get("ok"),
+            "z": result.get("z"),
+            "zone": result.get("zone"),
+            "primary_model": result.get("primary_model"),
+        },
+    )
+    if not result.get("ok"):
+        ctx.errors.append("altman: " + "; ".join(result.get("errors") or ["incomplete inputs"]))
+    return result
+
+
 def tool_get_peer_comps(ctx: ToolContext) -> dict[str, Any]:
     from src.peers import fetch_peer_comps, format_peer_comps_markdown
 
@@ -533,6 +561,7 @@ TOOL_REGISTRY: dict[str, Callable[[ToolContext], Any]] = {
     "run_dcf": tool_run_dcf,
     "run_ev_ebitda": tool_run_ev_ebitda,
     "build_scenario_ranges": tool_build_scenario_ranges,
+    "run_altman_z": tool_run_altman_z,
     "get_peer_comps": tool_get_peer_comps,
     "get_earnings": tool_get_earnings,
     "fetch_recent_filings": tool_fetch_recent_filings,

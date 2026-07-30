@@ -70,10 +70,13 @@ Local UI: http://127.0.0.1:8000
 .\scripts\ensure_online.ps1 -SkipTunnel
 .\scripts\ensure_online.ps1
 .\scripts\ensure_online.ps1 -NotifyAlways
+.\scripts\ensure_online.ps1 -ForceRestart   # only way keep-alive will recycle a live process
 .\scripts\run_tunnel.ps1
 .\scripts\stop_tunnel.ps1
 .\scripts\install_ensure_online.ps1 -Uninstall
 ```
+
+Keep-alive **never kills** a process that is already listening on the app port (or tracked in `data/app.pid`). A flaky `/health` during a long research run will log a warning and leave the app alone. Use `-ForceRestart` only when you intentionally want a recycle.
 
 ## Limits
 

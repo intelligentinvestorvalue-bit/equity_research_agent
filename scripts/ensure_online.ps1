@@ -1,15 +1,20 @@
 # Keep Equity Research Agent online (local web UI). Cloudflare tunnel is optional.
 #
+# Never kills a process that is already listening / tracked as the app.
+# Only starts uvicorn when nothing is running on the port.
+#
 # Usage:
 #   .\scripts\ensure_online.ps1
-#   .\scripts\ensure_online.ps1 -SkipTunnel          # app keep-alive only (recommended while tunnel is flaky)
+#   .\scripts\ensure_online.ps1 -SkipTunnel
 #   .\scripts\ensure_online.ps1 -NotifyAlways
+#   .\scripts\ensure_online.ps1 -ForceRestart   # explicit recycle only
 #
 # Schedule: .\scripts\install_ensure_online.ps1
 
 param(
   [switch]$NotifyAlways,
-  [switch]$SkipTunnel
+  [switch]$SkipTunnel,
+  [switch]$ForceRestart
 )
 
 $ErrorActionPreference = "Continue"
@@ -49,21 +54,88 @@ function Import-DotEnv {
   }
 }
 
-function Test-AppHealthy([int]$Port) {
+function Test-AppHealthy([int]$Port, [int]$TimeoutSec = 8) {
   try {
-    $r = Invoke-WebRequest -Uri "http://127.0.0.1:${Port}/health" -UseBasicParsing -TimeoutSec 4
+    $r = Invoke-WebRequest -Uri "http://127.0.0.1:${Port}/health" -UseBasicParsing -TimeoutSec $TimeoutSec
     return ($r.StatusCode -ge 200 -and $r.StatusCode -lt 300)
   } catch {
     return $false
   }
 }
 
-function Test-TunnelAlive {
-  $tunnelPidFile = Join-Path $LogDir "tunnel.pid"
-  if (-not (Test-Path $tunnelPidFile)) { return $false }
-  $tid = (Get-Content $tunnelPidFile -Raw).Trim()
-  if (-not $tid) { return $false }
-  return [bool](Get-Process -Id $tid -ErrorAction SilentlyContinue)
+function Test-AppHealthyRetry([int]$Port, [int]$Attempts = 3, [int]$DelaySec = 2) {
+  for ($i = 1; $i -le $Attempts; $i++) {
+    if (Test-AppHealthy $Port) { return $true }
+    if ($i -lt $Attempts) {
+      Write-EnsureLog "Health check miss $i/$Attempts - retrying in ${DelaySec}s (will not kill app)"
+      Start-Sleep -Seconds $DelaySec
+    }
+  }
+  return $false
+}
+
+function Get-PortListenerPids([int]$Port) {
+  $pids = @()
+  try {
+    $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    foreach ($c in $conns) {
+      if ($c.OwningProcess -and ($pids -notcontains $c.OwningProcess)) {
+        $pids += $c.OwningProcess
+      }
+    }
+  } catch { }
+  return $pids
+}
+
+function Get-TrackedAppPid {
+  if (-not (Test-Path $PidFile)) { return $null }
+  $raw = (Get-Content $PidFile -Raw).Trim()
+  if (-not $raw) { return $null }
+  $proc = Get-Process -Id $raw -ErrorAction SilentlyContinue
+  if ($proc) { return [int]$raw }
+  return $null
+}
+
+function Set-TrackedAppPid([int]$ProcessId) {
+  $ProcessId | Set-Content -Path $PidFile -Encoding ascii
+}
+
+function Test-AppProcessAlive([int]$Port) {
+  $tracked = Get-TrackedAppPid
+  if ($tracked) { return $true }
+  $listeners = Get-PortListenerPids $Port
+  return ($listeners.Count -gt 0)
+}
+
+function Sync-PidFileFromListener([int]$Port) {
+  $listeners = Get-PortListenerPids $Port
+  if ($listeners.Count -gt 0) {
+    $listenPid = [int]$listeners[0]
+    $tracked = Get-TrackedAppPid
+    if ($tracked -ne $listenPid) {
+      Set-TrackedAppPid $listenPid
+      if ($tracked) {
+        Write-EnsureLog "Updated app.pid $tracked → $listenPid (actual port listener)"
+      } else {
+        Write-EnsureLog "Adopted existing listener pid $listenPid into app.pid"
+      }
+    }
+    return $listenPid
+  }
+  return (Get-TrackedAppPid)
+}
+
+function Stop-AppServer([int]$Port, [string]$Reason) {
+  Write-EnsureLog "ForceRestart: stopping app ($Reason)"
+  $tracked = Get-TrackedAppPid
+  if ($tracked) {
+    Stop-Process -Id $tracked -Force -ErrorAction SilentlyContinue
+  }
+  foreach ($lp in (Get-PortListenerPids $Port)) {
+    Stop-Process -Id $lp -Force -ErrorAction SilentlyContinue
+  }
+  Remove-Item -Force -ErrorAction SilentlyContinue $PidFile
+  Start-Sleep -Seconds 1
 }
 
 function Start-AppServer([int]$Port) {
@@ -73,26 +145,32 @@ function Start-AppServer([int]$Port) {
     return $false
   }
 
-  if (Test-Path $PidFile) {
-    $old = (Get-Content $PidFile -Raw).Trim()
-    $op = Get-Process -Id $old -ErrorAction SilentlyContinue
-    if ($op) {
-      Write-EnsureLog "Stopping stale app pid $old"
-      Stop-Process -Id $old -Force -ErrorAction SilentlyContinue
-      Start-Sleep -Seconds 1
+  # Safety: never start (or kill) if something is already bound / tracked.
+  if (Test-AppProcessAlive $Port) {
+    Sync-PidFileFromListener $Port | Out-Null
+    if (Test-AppHealthyRetry $Port 2 2) {
+      Write-EnsureLog "App already running - left untouched"
+      return $true
     }
-    Remove-Item -Force -ErrorAction SilentlyContinue $PidFile
+    Write-EnsureLog "WARN: app process is alive but /health failing - NOT killing it (pass -ForceRestart to recycle)"
+    return $true
   }
 
-  # Also free anything else listening on the port (orphan uvicorn)
-  try {
-    $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-    foreach ($c in $listeners) {
-      Write-EnsureLog "Stopping orphan listener pid $($c.OwningProcess) on port $Port"
-      Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+  # Clean stale pid file only when the process is gone
+  if (Test-Path $PidFile) {
+    $old = (Get-Content $PidFile -Raw).Trim()
+    if ($old -and -not (Get-Process -Id $old -ErrorAction SilentlyContinue)) {
+      Remove-Item -Force -ErrorAction SilentlyContinue $PidFile
+      Write-EnsureLog "Removed stale pid file (process $old not running)"
     }
-    if ($listeners) { Start-Sleep -Seconds 1 }
-  } catch { }
+  }
+
+  # Do not truncate live logs if somehow a listener appeared
+  if ((Get-PortListenerPids $Port).Count -gt 0) {
+    Write-EnsureLog "WARN: port $Port became busy before start - aborting start, leaving existing process"
+    Sync-PidFileFromListener $Port | Out-Null
+    return $true
+  }
 
   Remove-Item -Force -ErrorAction SilentlyContinue $ServerOut, $ServerErr
   Write-EnsureLog "Starting Equity Research Agent on port $Port (background)"
@@ -109,7 +187,7 @@ function Start-AppServer([int]$Port) {
     -WindowStyle Hidden `
     -PassThru
 
-  $proc.Id | Set-Content -Path $PidFile -Encoding ascii
+  Set-TrackedAppPid $proc.Id
 
   for ($i = 0; $i -lt 40; $i++) {
     Start-Sleep -Milliseconds 500
@@ -177,17 +255,34 @@ if (Test-Path $envFile) {
   }
 }
 
-Write-EnsureLog "ensure_online check (port $port; skip_tunnel=$SkipTunnel)"
+Write-EnsureLog "ensure_online check (port $port; skip_tunnel=$SkipTunnel; force_restart=$ForceRestart)"
 
 $appOk = $false
-if (Test-AppHealthy $port) {
-  Write-EnsureLog "App OK"
+
+if ($ForceRestart) {
+  Stop-AppServer $port "explicit -ForceRestart"
+  if (Start-AppServer $port) { $appOk = $true }
+  else {
+    Write-EnsureLog "ABORT: could not start app after ForceRestart"
+    exit 1
+  }
+}
+elseif (Test-AppHealthyRetry $port 3 2) {
+  Sync-PidFileFromListener $port | Out-Null
+  Write-EnsureLog "App OK - leaving running process alone"
   $appOk = $true
-} else {
-  Write-EnsureLog "App down - starting"
-  if (Start-AppServer $port) {
-    $appOk = $true
-  } else {
+}
+elseif (Test-AppProcessAlive $port) {
+  # Process exists; health flaky or busy (e.g. long Ollama work). Do not kill.
+  Sync-PidFileFromListener $port | Out-Null
+  $alivePid = Get-TrackedAppPid
+  Write-EnsureLog "WARN: process alive (pid $alivePid) but /health not OK - NOT restarting (use -ForceRestart if needed)"
+  $appOk = $true
+}
+else {
+  Write-EnsureLog "App down (no process on port) - starting"
+  if (Start-AppServer $port) { $appOk = $true }
+  else {
     Write-EnsureLog "ABORT: could not start app"
     exit 1
   }

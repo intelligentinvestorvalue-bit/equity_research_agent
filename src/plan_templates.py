@@ -211,6 +211,15 @@ def valuation_sections(ticker: str, company: str | None = None, goal: str = "") 
                 "map catalysts & risks → EBITDA/multiple paths → price bands"
             ),
         ),
+        PlanSection(
+            id="altman",
+            title="(7) Altman Z — medium-term bankruptcy risk",
+            tools=["run_altman_z"],
+            notes=(
+                "Classic Altman Z + Z'' screen for 18–36m distress risk; "
+                "complements scenario ranges, not a credit rating"
+            ),
+        ),
     ]
 
 
@@ -349,6 +358,15 @@ def memo_sections(ticker: str, company: str | None = None, goal: str = "") -> li
             notes=(
                 "Medium-term (18–36m) bear/base/bull price bands from catalysts & risks — "
                 "complements DCF, not a substitute"
+            ),
+        ),
+        PlanSection(
+            id="altman",
+            title="(7g) Altman Z — medium-term bankruptcy risk",
+            tools=["run_altman_z"],
+            notes=(
+                "Altman Z / Z'' distress screen from balance sheet + market equity; "
+                "medium-term insolvency risk alongside scenario ranges"
             ),
         ),
         PlanSection(

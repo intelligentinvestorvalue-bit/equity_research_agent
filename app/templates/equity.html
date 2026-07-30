@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{{ ticker }} · Equity dossier</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260724" />
 </head>
 <body>
   {% include "partials/nav.html" %}
@@ -15,7 +15,8 @@
         <p class="sub">Template menu — open each research view for this equity</p>
       </div>
       <div class="actions">
-        <a class="btn secondary" href="/?ticker={{ ticker }}">New run</a>
+        <a class="btn" href="/?ticker={{ ticker }}&amp;from_scratch=1">Re-run from scratch</a>
+        <a class="btn secondary" href="/?ticker={{ ticker }}">New run (use cache)</a>
         {% if latest_pack_id %}
         <a class="btn secondary" href="/jobs/{{ latest_pack_id }}/report">Open full pack</a>
         {% endif %}
@@ -40,7 +41,11 @@
           {% endif %}
         {% endfor %}
       </div>
-      <p class="fine">Tip: start a new research with template <strong>All templates (full pack)</strong> to generate every view in one job.</p>
+      <p class="fine">
+        <strong>Re-run from scratch</strong> clears the cached 10-K and local output files for {{ ticker }},
+        then opens the Research form ready to start a fresh job. Prior job history stays on the dashboard.
+      </p>
+      <p class="fine">Tip: choose template <strong>All templates (full pack)</strong> to regenerate every view in one job.</p>
     </section>
 
     {% if jobs %}

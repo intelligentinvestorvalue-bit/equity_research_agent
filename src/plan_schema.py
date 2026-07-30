@@ -20,6 +20,7 @@ ToolName = Literal[
     "run_dcf",
     "run_ev_ebitda",
     "build_scenario_ranges",
+    "run_altman_z",
     "get_peer_comps",
     "get_earnings",
     "fetch_recent_filings",
@@ -119,6 +120,12 @@ def default_deep_sections() -> list[PlanSection]:
             title="MD&A (Item 7)",
             tools=["summarize_item_7"],
             notes="Management discussion, tone, guidance cues",
+        ),
+        PlanSection(
+            id="altman",
+            title="Altman Z — medium-term bankruptcy risk",
+            tools=["run_altman_z"],
+            notes="Distress screen (classic Z / Z'') for medium-term solvency risk",
         ),
     ]
 

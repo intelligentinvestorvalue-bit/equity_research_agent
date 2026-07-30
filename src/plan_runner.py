@@ -114,6 +114,20 @@ def _format_report(plan: ResearchPlan, ctx: ToolContext) -> str:
         lines.append(scen_md.rstrip())
         lines.append("")
 
+    if ctx.altman is not None:
+        from src.altman import format_altman_markdown
+
+        alt_md = ctx.altman.get("report_markdown") or format_altman_markdown(ctx.altman)
+        cite_bit = cite(f"{plan.ticker} Altman Z-score")
+        if cite_bit:
+            alt_md = alt_md.replace(
+                "## Altman Z-score (medium-term bankruptcy risk)",
+                "## Altman Z-score (medium-term bankruptcy risk)" + cite_bit,
+                1,
+            )
+        lines.append(alt_md.rstrip())
+        lines.append("")
+
     if ctx.peers is not None:
         from src.peers import format_peer_comps_markdown
 

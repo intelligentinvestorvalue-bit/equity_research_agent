@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Equity Research</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260724" />
 </head>
 <body>
   {% set active_nav = active_nav or 'research' %}
@@ -51,6 +51,12 @@
         Review plan before running <span class="muted">(ignored for All templates pack)</span>
       </label>
 
+      <label class="check">
+        <input type="checkbox" name="from_scratch" value="on" id="from_scratch"
+               {% if from_scratch %}checked{% endif %} />
+        Re-run from scratch <span class="muted">(clear cached 10-K &amp; local outputs, then research again)</span>
+      </label>
+
       {% if pin_required %}
       <label for="pin">PIN</label>
       <input id="pin" name="pin" type="password" inputmode="numeric" />
@@ -76,7 +82,7 @@
     </section>
     {% endif %}
 
-    <p class="fine">Not investment advice. Reports stay on this machine under <code>output/</code>. Jobs persist in <code>data/research.db</code> and sync via git-tracked <code>data/sync/</code> (cloud ↔ local).</p>
+    <p class="fine">Not investment advice. Reports stay on this machine under <code>output/</code>. Jobs persist in <code>data/research.db</code> and sync via git-tracked <code>data/sync/</code> (cloud ↔ local). For many tickers overnight, use <a class="link" href="/queue">Queue</a>.</p>
   </main>
   <script>
     const hints = {

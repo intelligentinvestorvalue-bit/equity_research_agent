@@ -274,15 +274,23 @@ def _extract_proxy_rows(web: dict[str, Any] | None, ticker: str) -> list[dict[st
 
 
 def format_proxy_tracker_markdown(rows: list[dict[str, str]]) -> str:
+    def _cell(value: str) -> str:
+        return re.sub(r"\s+", " ", (value or "").replace("|", "/")).strip()
+
     lines = [
         "## Early proxy tracker",
         "",
         "| Proxy | Why it matters | Current signal | Source |",
-        "|---|---|---|---|",
+        "| --- | --- | --- | --- |",
     ]
     for r in rows:
         lines.append(
-            f"| {r.get('proxy', '')} | {r.get('why', '')} | {r.get('signal', '').replace('|', '/')} | {r.get('source', '')} |"
+            "| {proxy} | {why} | {signal} | {source} |".format(
+                proxy=_cell(r.get("proxy", "")),
+                why=_cell(r.get("why", "")),
+                signal=_cell(r.get("signal", "")),
+                source=_cell(r.get("source", "")),
+            )
         )
     lines.append("")
     lines.append("_Proxies are heuristic extractions from public web/SEC context; verify against primary filings._")

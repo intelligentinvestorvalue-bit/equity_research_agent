@@ -52,11 +52,12 @@ Allowed tools ONLY:
 - run_dcf
 - run_ev_ebitda
 - build_scenario_ranges
+- run_altman_z
 - search_web
 
 Rules:
 - For mode "fast": get_fundamentals, run_dcf, and optionally screen_puts.
-- For mode "deep": include search_web; include fetch_10k before summarize_item_1 / summarize_item_1a / summarize_item_7; include run_dcf after get_fundamentals; optionally build_scenario_ranges after web/SEC context.
+- For mode "deep": include search_web; include fetch_10k before summarize_item_1 / summarize_item_1a / summarize_item_7; include run_dcf after get_fundamentals; optionally build_scenario_ranges and run_altman_z after web/SEC context.
 - Keep 2–8 sections. Prefer concrete notes tied to the user goal.
 """
 
@@ -170,6 +171,7 @@ _ALLOWED = {
     "run_dcf",
     "run_ev_ebitda",
     "build_scenario_ranges",
+    "run_altman_z",
     "get_peer_comps",
     "get_earnings",
     "fetch_recent_filings",
