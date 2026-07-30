@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Research queue</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260728" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260730" />
 </head>
 <body>
   {% set active_nav = active_nav or 'queue' %}
   {% include "partials/nav.html" %}
   <main class="wrap wide">
     <header>
-      <p class="brand">Overnight queue</p>
-      <p class="sub">Add many tickers — the app runs them one after another (no plan approval)</p>
+      <p class="brand">Research queue</p>
+      <p class="sub">Prompt to start within a minute, or park tickers for overnight — one after another, no plan approval</p>
     </header>
 
     {% if error %}
@@ -34,10 +34,17 @@
     </div>
 
     <form class="card-form" method="post" action="/queue">
-      <label for="tickers">Tickers</label>
+      <label for="tickers">Add tickers</label>
       <textarea id="tickers" name="tickers" rows="5" required
                 placeholder="AAPL&#10;MSFT, GOOGL&#10;UUUU NVDA"></textarea>
-      <p class="fine">One per line, or comma/space separated. Duplicates in this batch are skipped.</p>
+      <p class="fine">One per line, or comma/space separated. Already-queued or researched names are skipped.</p>
+
+      <label for="start_policy">When to run</label>
+      <select id="start_policy" name="start_policy">
+        <option value="prompt_now" selected>Notify &amp; auto-start in ~1 min (cancel → overnight)</option>
+        <option value="overnight">Overnight only (wait until Start overnight)</option>
+      </select>
+      <p class="fine">Laptop ntfy gets Start now / Overnight actions — no browser required when keep-alive is on.</p>
 
       <label for="template">Research template</label>
       <select id="template" name="template">
@@ -70,7 +77,25 @@
       <button type="submit">Add to queue</button>
     </form>
 
+    <form class="card-form" method="post" action="/queue/remove" style="margin-top:1rem">
+      <label for="remove_ticker">Remove ticker from pending queue</label>
+      <div class="row" style="gap:0.5rem;align-items:end;flex-wrap:wrap">
+        <input id="remove_ticker" name="ticker" type="text" maxlength="12" required placeholder="TICKER" style="text-transform:uppercase" />
+        {% if pin_required %}
+        <input name="pin" type="password" inputmode="numeric" placeholder="PIN" required />
+        {% endif %}
+        <button type="submit" class="btn-secondary">Remove</button>
+      </div>
+    </form>
+
     <div class="queue-controls row">
+      <form method="post" action="/queue/start-overnight" class="queue-ctrl">
+        {% if pin_required %}
+        <label class="fine" for="pin-overnight">PIN</label>
+        <input id="pin-overnight" name="pin" type="password" inputmode="numeric" required />
+        {% endif %}
+        <button type="submit">Start overnight now</button>
+      </form>
       {% if summary.paused %}
       <form method="post" action="/queue/resume" class="queue-ctrl">
         {% if pin_required %}
@@ -115,8 +140,10 @@
               <th>#</th>
               <th>Ticker</th>
               <th>Template</th>
+              <th>Policy</th>
               <th>Status</th>
               <th>Job</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="queue-body">
@@ -125,6 +152,11 @@
               <td>{{ i.position }}</td>
               <td><strong>{{ i.ticker }}</strong>{% if i.from_scratch %} <span class="muted">scratch</span>{% endif %}</td>
               <td>{{ i.template }}</td>
+              <td class="fine">
+                {{ i.start_policy or 'prompt_now' }}
+                {% if i.deferred %} · deferred{% endif %}
+                {% if i.hold_until %} · holding{% endif %}
+              </td>
               <td>
                 <span class="qstatus q-{{ i.status }}">{{ i.status }}</span>
                 {% if i.error %}<div class="fine error-text">{{ i.error }}</div>{% endif %}
@@ -134,16 +166,21 @@
                 <a class="link" href="{{ i.job_href }}">Open</a>
                 {% else %}—{% endif %}
               </td>
+              <td>
+                {% if i.status == 'pending' %}
+                <button type="button" class="btn-secondary q-remove" data-id="{{ i.id }}">Remove</button>
+                {% endif %}
+              </td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="muted">Queue is empty. Add tickers above.</td></tr>
+            <tr><td colspan="7" class="muted">Queue is empty. Add tickers above.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </section>
 
-    <p class="fine">Queue survives app restarts: interrupted items are re-queued. Keep the PC awake (or use Task Scheduler keep-alive). Not investment advice.</p>
+    <p class="fine">Queue survives app restarts. Keep the PC awake (Task Scheduler keep-alive). Not investment advice.</p>
   </main>
   <script>
     const hints = {
@@ -173,7 +210,6 @@
       const summary = document.getElementById("queue-summary");
       if (summary) {
         const chips = summary.querySelectorAll(".qchip");
-        // state, pending, running, done, failed
         if (chips[1]) chips[1].textContent = "Pending " + (s.pending || 0);
         if (chips[2]) chips[2].textContent = "Running " + (s.running || 0);
         if (chips[3]) chips[3].textContent = "Done " + (s.completed || 0);
@@ -183,7 +219,7 @@
       if (!body) return;
       const items = data.items || [];
       if (!items.length) {
-        body.innerHTML = '<tr><td colspan="5" class="muted">Queue is empty. Add tickers above.</td></tr>';
+        body.innerHTML = '<tr><td colspan="7" class="muted">Queue is empty. Add tickers above.</td></tr>';
         return;
       }
       body.innerHTML = items.map(i => {
@@ -192,14 +228,30 @@
           ? '<a class="link" href="' + esc(i.job_href) + '">Open</a>'
           : '—';
         const scratch = i.from_scratch ? ' <span class="muted">scratch</span>' : '';
+        const policy = esc(i.start_policy || 'prompt_now')
+          + (i.deferred ? ' · deferred' : '')
+          + (i.hold_until ? ' · holding' : '');
+        const remove = i.status === 'pending'
+          ? '<button type="button" class="btn-secondary q-remove" data-id="' + esc(i.id) + '">Remove</button>'
+          : '';
         return '<tr class="q-' + esc(i.status) + '">'
           + '<td>' + esc(i.position) + '</td>'
           + '<td><strong>' + esc(i.ticker) + '</strong>' + scratch + '</td>'
           + '<td>' + esc(i.template) + '</td>'
+          + '<td class="fine">' + policy + '</td>'
           + '<td><span class="qstatus q-' + esc(i.status) + '">' + esc(i.status) + '</span>' + err + '</td>'
           + '<td>' + job + '</td>'
+          + '<td>' + remove + '</td>'
           + '</tr>';
       }).join('');
+      body.querySelectorAll('.q-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (!id || !confirm('Remove this ticker from the queue?')) return;
+          await fetch('/api/queue/' + encodeURIComponent(id) + '/remove', { method: 'POST' });
+          poll();
+        });
+      });
     }
 
     async function poll() {
@@ -208,6 +260,14 @@
         if (r.ok) render(await r.json());
       } catch (e) { /* ignore */ }
     }
+    document.querySelectorAll('.q-remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (!id || !confirm('Remove this ticker from the queue?')) return;
+        await fetch('/api/queue/' + encodeURIComponent(id) + '/remove', { method: 'POST' });
+        poll();
+      });
+    });
     setInterval(poll, 4000);
   </script>
 </body>

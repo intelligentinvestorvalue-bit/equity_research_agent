@@ -52,6 +52,11 @@ class QueueItem:
     created_at: str = field(default_factory=_now)
     started_at: str | None = None
     finished_at: str | None = None
+    # prompt_now: notify laptop, auto-start after hold_until unless deferred
+    # overnight: stay pending until Start overnight / resume deferred
+    start_policy: str = "prompt_now"
+    hold_until: str | None = None
+    deferred: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -69,7 +74,17 @@ class QueueItem:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "job_href": f"/jobs/{self.job_id}" if self.job_id else None,
+            "start_policy": self.start_policy,
+            "hold_until": self.hold_until,
+            "deferred": bool(self.deferred),
         }
+
+
+def _row_val(row: Any, key: str, default: Any = None) -> Any:
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return default
 
 
 def _row_to_item(row: Any) -> QueueItem:
@@ -87,6 +102,9 @@ def _row_to_item(row: Any) -> QueueItem:
         created_at=row["created_at"],
         started_at=row["started_at"],
         finished_at=row["finished_at"],
+        start_policy=(_row_val(row, "start_policy") or "prompt_now"),
+        hold_until=_row_val(row, "hold_until"),
+        deferred=bool(_row_val(row, "deferred") or 0),
     )
 
 
@@ -133,6 +151,18 @@ class ResearchQueueStore:
                 conn.execute(
                     "INSERT OR IGNORE INTO research_queue_meta(key, value) VALUES ('paused', '0')"
                 )
+                # Lightweight column ensure (no Alembic)
+                cols = {r[1] for r in conn.execute("PRAGMA table_info(research_queue)").fetchall()}
+                if "start_policy" not in cols:
+                    conn.execute(
+                        "ALTER TABLE research_queue ADD COLUMN start_policy TEXT DEFAULT 'prompt_now'"
+                    )
+                if "hold_until" not in cols:
+                    conn.execute("ALTER TABLE research_queue ADD COLUMN hold_until TEXT")
+                if "deferred" not in cols:
+                    conn.execute(
+                        "ALTER TABLE research_queue ADD COLUMN deferred INTEGER DEFAULT 0"
+                    )
                 conn.commit()
             finally:
                 conn.close()
@@ -174,8 +204,15 @@ class ResearchQueueStore:
         goal: str = "",
         from_scratch: bool = False,
         skip_existing: bool = True,
+        start_policy: str = "prompt_now",
+        confirm_seconds: int = 60,
     ) -> dict[str, Any]:
         """Enqueue tickers. Returns created items and skip reasons.
+
+        start_policy:
+          - prompt_now: hold for confirm_seconds, ntfy laptop, then auto-start
+            unless deferred to overnight
+          - overnight: stay pending/deferred until Start overnight / resume
 
         When skip_existing is True (default), tickers already pending/running in
         the overnight queue, already running as jobs, or already researched
@@ -191,6 +228,10 @@ class ResearchQueueStore:
 
         template = (template or "memo").strip().lower()
         mode = "fast" if mode == "fast" else "deep"
+        policy = (start_policy or "prompt_now").strip().lower()
+        if policy not in {"prompt_now", "overnight"}:
+            policy = "prompt_now"
+        hold_seconds = max(0, int(confirm_seconds))
         created: list[QueueItem] = []
         skipped: list[dict[str, str]] = []
 
@@ -241,6 +282,17 @@ class ResearchQueueStore:
                             )
                             continue
                     pos = self._next_position(conn)
+                    hold_until = None
+                    deferred = 0
+                    if policy == "prompt_now" and hold_seconds > 0:
+                        from datetime import timedelta
+
+                        hold_until = (
+                            datetime.now(timezone.utc) + timedelta(seconds=hold_seconds)
+                        ).isoformat()
+                    elif policy == "overnight":
+                        deferred = 1
+
                     item = QueueItem(
                         id=str(uuid.uuid4()),
                         ticker=ticker,
@@ -250,13 +302,17 @@ class ResearchQueueStore:
                         from_scratch=from_scratch,
                         status="pending",
                         position=pos,
+                        start_policy=policy,
+                        hold_until=hold_until,
+                        deferred=bool(deferred),
                     )
                     conn.execute(
                         """
                         INSERT INTO research_queue (
                             id, ticker, template, mode, goal, from_scratch, status, position,
-                            job_id, error, created_at, started_at, finished_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL)
+                            job_id, error, created_at, started_at, finished_at,
+                            start_policy, hold_until, deferred
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, ?, ?)
                         """,
                         (
                             item.id,
@@ -268,6 +324,9 @@ class ResearchQueueStore:
                             item.status,
                             item.position,
                             item.created_at,
+                            item.start_policy,
+                            item.hold_until,
+                            1 if item.deferred else 0,
                         ),
                     )
                     created.append(item)
@@ -338,28 +397,152 @@ class ResearchQueueStore:
                 conn.close()
 
     def claim_next(self) -> QueueItem | None:
-        """Atomically mark the next pending item as running and return it."""
+        """Atomically mark the next eligible pending item as running and return it."""
         with self._lock:
             if self.get_paused():
                 return None
             conn = connect()
             try:
+                now = _now()
                 row = conn.execute(
-                    "SELECT * FROM research_queue WHERE status='pending' "
-                    "ORDER BY position ASC, created_at ASC LIMIT 1"
+                    """
+                    SELECT * FROM research_queue
+                    WHERE status='pending'
+                      AND COALESCE(deferred, 0)=0
+                      AND (hold_until IS NULL OR hold_until <= ?)
+                    ORDER BY position ASC, created_at ASC
+                    LIMIT 1
+                    """,
+                    (now,),
                 ).fetchone()
                 if not row:
                     return None
-                started = _now()
+                started = now
                 conn.execute(
-                    "UPDATE research_queue SET status='running', started_at=?, error=NULL WHERE id=?",
+                    "UPDATE research_queue SET status='running', started_at=?, error=NULL, "
+                    "hold_until=NULL WHERE id=?",
                     (started, row["id"]),
                 )
                 conn.commit()
                 item = _row_to_item(row)
                 item.status = "running"
                 item.started_at = started
+                item.hold_until = None
                 return item
+            finally:
+                conn.close()
+
+    def release_holds_due(self) -> int:
+        """Clear expired hold_until on non-deferred pending items so worker can claim them."""
+        with self._lock:
+            conn = connect()
+            try:
+                now = _now()
+                cur = conn.execute(
+                    """
+                    UPDATE research_queue
+                    SET hold_until=NULL
+                    WHERE status='pending'
+                      AND COALESCE(deferred, 0)=0
+                      AND hold_until IS NOT NULL
+                      AND hold_until <= ?
+                    """,
+                    (now,),
+                )
+                conn.commit()
+                return cur.rowcount
+            finally:
+                conn.close()
+
+    def confirm_start_now(self, item_id: str) -> QueueItem | None:
+        """User confirmed: clear hold/deferred and make immediately runnable."""
+        with self._lock:
+            conn = connect()
+            try:
+                conn.execute(
+                    "UPDATE research_queue SET hold_until=NULL, deferred=0, "
+                    "start_policy='prompt_now' WHERE id=? AND status='pending'",
+                    (item_id,),
+                )
+                conn.commit()
+                row = conn.execute(
+                    "SELECT * FROM research_queue WHERE id=?", (item_id,)
+                ).fetchone()
+                return _row_to_item(row) if row else None
+            finally:
+                conn.close()
+
+    def defer_to_overnight(self, item_id: str) -> QueueItem | None:
+        """Cancel immediate start — keep in overnight queue until manual/overnight start."""
+        with self._lock:
+            conn = connect()
+            try:
+                conn.execute(
+                    "UPDATE research_queue SET deferred=1, hold_until=NULL, "
+                    "start_policy='overnight', "
+                    "error='Deferred to overnight queue' "
+                    "WHERE id=? AND status='pending'",
+                    (item_id,),
+                )
+                conn.commit()
+                row = conn.execute(
+                    "SELECT * FROM research_queue WHERE id=?", (item_id,)
+                ).fetchone()
+                return _row_to_item(row) if row else None
+            finally:
+                conn.close()
+
+    def start_overnight(self) -> int:
+        """Make all deferred/overnight pending items eligible and clear holds."""
+        with self._lock:
+            conn = connect()
+            try:
+                cur = conn.execute(
+                    """
+                    UPDATE research_queue
+                    SET deferred=0, hold_until=NULL, error=NULL
+                    WHERE status='pending' AND (
+                        COALESCE(deferred, 0)=1 OR start_policy='overnight'
+                    )
+                    """
+                )
+                conn.commit()
+                return cur.rowcount
+            finally:
+                conn.close()
+
+    def remove_ticker(self, ticker: str) -> int:
+        """Cancel pending items for a ticker (remove from overnight queue)."""
+        t = (ticker or "").upper().strip()
+        if not t:
+            return 0
+        with self._lock:
+            conn = connect()
+            try:
+                cur = conn.execute(
+                    "UPDATE research_queue SET status='cancelled', finished_at=?, "
+                    "error='Removed from queue' "
+                    "WHERE UPPER(ticker)=? AND status='pending'",
+                    (_now(), t),
+                )
+                conn.commit()
+                return cur.rowcount
+            finally:
+                conn.close()
+
+    def remove_item(self, item_id: str) -> bool:
+        """Cancel one pending queue item by id."""
+        with self._lock:
+            conn = connect()
+            try:
+                cur = conn.execute(
+                    "UPDATE research_queue SET status='cancelled', finished_at=?, "
+                    "error='Removed from queue' "
+                    "WHERE id=? AND status='pending'",
+                    (_now(), item_id),
+                )
+                conn.commit()
+                return cur.rowcount > 0
             finally:
                 conn.close()
 
@@ -501,6 +684,14 @@ class QueueWorker:
         return False
 
     def _tick(self) -> None:
+        # Release expired prompt holds so claim_next can pick them up.
+        try:
+            released = self.store.release_holds_due()
+            if released:
+                logger.info("Released %s expired queue hold(s)", released)
+        except Exception:  # noqa: BLE001
+            logger.exception("release_holds_due failed")
+
         # Always settle the current running item first — even when paused —
         # so "Pause after current" still marks that job completed/failed.
         running = [i for i in self.store.list_items(include_done=False) if i.status == "running"]

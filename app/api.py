@@ -443,6 +443,10 @@ class QueueAddRequest(BaseModel):
     mode: str = Field(default="deep", pattern="^(fast|deep|comprehensive)$")
     goal: str = ""
     from_scratch: bool = False
+    # prompt_now: ntfy + auto-start after ~60s unless deferred
+    # overnight: add only; run when Start overnight / resume deferred
+    start_policy: str = Field(default="prompt_now", pattern="^(prompt_now|overnight)$")
+    confirm_seconds: int = Field(default=60, ge=0, le=600)
     pin: str | None = None
 
 
@@ -491,20 +495,31 @@ async def api_queue_add(body: QueueAddRequest) -> dict[str, Any]:
         goal=body.goal or "",
         from_scratch=body.from_scratch,
         skip_existing=True,
+        start_policy=body.start_policy or "prompt_now",
+        confirm_seconds=int(body.confirm_seconds),
     )
     created = result["created"]
     skipped = result["skipped"]
     if not created and not skipped:
         raise HTTPException(status_code=400, detail="No valid tickers found")
     if created:
-        if queue_store.get_paused():
-            queue_store.set_paused(False)
-        _queue_kick()
+        from src.queue_notify import notify_prompt_now
+
+        if (body.start_policy or "prompt_now") == "prompt_now":
+            notify_prompt_now(created, confirm_seconds=int(body.confirm_seconds))
+            # Do not kick yet — hold_until gates claim_next; worker poll releases holds.
+            if queue_store.get_paused():
+                queue_store.set_paused(False)
+            _queue_kick()
+        else:
+            # Overnight: leave deferred; do not start until Start overnight.
+            pass
     return {
         "added": len(created),
         "tickers": [c.ticker for c in created],
         "created": [c.to_dict() for c in created],
         "skipped": skipped,
+        "start_policy": body.start_policy,
         "summary": queue_store.summary(),
         "items": [i.to_dict() for i in queue_store.list_items(limit=200)],
     }
@@ -518,10 +533,14 @@ async def queue_add_form(
     mode: str = Form("deep"),
     goal: str = Form(""),
     from_scratch: str | None = Form(None),
+    start_policy: str = Form("prompt_now"),
     pin: str | None = Form(None),
 ) -> Any:
     try:
         _check_pin(pin)
+        policy = (start_policy or "prompt_now").strip().lower()
+        if policy not in {"prompt_now", "overnight"}:
+            policy = "prompt_now"
         result = queue_store.add_tickers(
             tickers,
             template=template or "memo",
@@ -529,14 +548,20 @@ async def queue_add_form(
             goal=goal or "",
             from_scratch=(from_scratch or "").lower() in {"on", "1", "true", "yes"},
             skip_existing=True,
+            start_policy=policy,
+            confirm_seconds=60,
         )
         created = result["created"]
         if not created and not result["skipped"]:
             raise HTTPException(status_code=400, detail="No valid tickers found")
         if created:
-            if queue_store.get_paused():
-                queue_store.set_paused(False)
-            _queue_kick()
+            from src.queue_notify import notify_prompt_now
+
+            if policy == "prompt_now":
+                notify_prompt_now(created, confirm_seconds=60)
+                if queue_store.get_paused():
+                    queue_store.set_paused(False)
+                _queue_kick()
     except HTTPException as exc:
         return templates.TemplateResponse(
             request,
@@ -599,6 +624,94 @@ async def api_queue_cancel_item(item_id: str, body: QueueControlRequest | None =
     return {"cancelled": True, "summary": queue_store.summary()}
 
 
+@app.post("/api/queue/{item_id}/start-now")
+async def api_queue_start_now(item_id: str, body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    item = queue_store.confirm_start_now(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Pending item not found")
+    if queue_store.get_paused():
+        queue_store.set_paused(False)
+    _queue_kick()
+    return {"ok": True, "item": item.to_dict(), "summary": queue_store.summary()}
+
+
+@app.post("/api/queue/{item_id}/defer")
+async def api_queue_defer(item_id: str, body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    item = queue_store.defer_to_overnight(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Pending item not found")
+    return {"ok": True, "item": item.to_dict(), "summary": queue_store.summary()}
+
+
+@app.post("/api/queue/start-now")
+async def api_queue_start_all_prompts(body: QueueControlRequest | None = None) -> dict[str, Any]:
+    """Clear holds on all pending prompt_now items and start the worker."""
+    pin = body.pin if body else None
+    _check_pin(pin)
+    n = 0
+    for item in queue_store.list_items(include_done=False):
+        if item.status == "pending" and item.start_policy == "prompt_now":
+            if queue_store.confirm_start_now(item.id):
+                n += 1
+    if queue_store.get_paused():
+        queue_store.set_paused(False)
+    _queue_kick()
+    return {"ok": True, "started": n, "summary": queue_store.summary()}
+
+
+@app.post("/api/queue/defer-pending-prompts")
+async def api_queue_defer_prompts(body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    n = 0
+    for item in queue_store.list_items(include_done=False):
+        if item.status == "pending" and item.hold_until and not item.deferred:
+            if queue_store.defer_to_overnight(item.id):
+                n += 1
+    return {"ok": True, "deferred": n, "summary": queue_store.summary()}
+
+
+@app.post("/api/queue/start-overnight")
+async def api_queue_start_overnight(body: QueueControlRequest | None = None) -> dict[str, Any]:
+    """Release deferred/overnight items and run the queue now."""
+    pin = body.pin if body else None
+    _check_pin(pin)
+    n = queue_store.start_overnight()
+    if queue_store.get_paused():
+        queue_store.set_paused(False)
+    _queue_kick()
+    return {"ok": True, "released": n, "summary": queue_store.summary()}
+
+
+@app.delete("/api/queue/ticker/{ticker}")
+@app.post("/api/queue/ticker/{ticker}/remove")
+async def api_queue_remove_ticker(ticker: str, body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    n = queue_store.remove_ticker(ticker)
+    return {
+        "ok": True,
+        "removed": n,
+        "ticker": ticker.upper().strip(),
+        "summary": queue_store.summary(),
+        "items": [i.to_dict() for i in queue_store.list_items(limit=200)],
+    }
+
+
+@app.post("/api/queue/{item_id}/remove")
+async def api_queue_remove_item(item_id: str, body: QueueControlRequest | None = None) -> dict[str, Any]:
+    pin = body.pin if body else None
+    _check_pin(pin)
+    ok = queue_store.remove_item(item_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Pending item not found")
+    return {"ok": True, "removed": True, "summary": queue_store.summary()}
+
+
 @app.post("/queue/pause")
 async def queue_pause_form(pin: str | None = Form(None)) -> RedirectResponse:
     _check_pin(pin)
@@ -625,6 +738,26 @@ async def queue_cancel_pending_form(pin: str | None = Form(None)) -> RedirectRes
 async def queue_clear_finished_form(pin: str | None = Form(None)) -> RedirectResponse:
     _check_pin(pin)
     queue_store.clear_finished()
+    return RedirectResponse(url="/queue", status_code=303)
+
+
+@app.post("/queue/start-overnight")
+async def queue_start_overnight_form(pin: str | None = Form(None)) -> RedirectResponse:
+    _check_pin(pin)
+    queue_store.start_overnight()
+    if queue_store.get_paused():
+        queue_store.set_paused(False)
+    _queue_kick()
+    return RedirectResponse(url="/queue", status_code=303)
+
+
+@app.post("/queue/remove")
+async def queue_remove_form(
+    ticker: str = Form(...),
+    pin: str | None = Form(None),
+) -> RedirectResponse:
+    _check_pin(pin)
+    queue_store.remove_ticker(ticker)
     return RedirectResponse(url="/queue", status_code=303)
 
 
