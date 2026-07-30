@@ -107,6 +107,15 @@ function Test-AppProcessAlive([int]$Port) {
   return ($listeners.Count -gt 0)
 }
 
+function Test-TunnelAlive {
+  $tunnelPidFile = Join-Path $LogDir "tunnel.pid"
+  if (-not (Test-Path $tunnelPidFile)) { return $false }
+  $tid = (Get-Content $tunnelPidFile -Raw).Trim()
+  if (-not $tid) { return $false }
+  $proc = Get-Process -Id $tid -ErrorAction SilentlyContinue
+  return [bool]$proc
+}
+
 function Sync-PidFileFromListener([int]$Port) {
   $listeners = Get-PortListenerPids $Port
   if ($listeners.Count -gt 0) {
