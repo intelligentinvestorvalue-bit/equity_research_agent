@@ -173,21 +173,73 @@ class ResearchQueueStore:
         mode: str = "deep",
         goal: str = "",
         from_scratch: bool = False,
-    ) -> list[QueueItem]:
+        skip_existing: bool = True,
+    ) -> dict[str, Any]:
+        """Enqueue tickers. Returns created items and skip reasons.
+
+        When skip_existing is True (default), tickers already pending/running in
+        the overnight queue, already running as jobs, or already researched
+        (completed job / sync reports / local output) are skipped — unless
+        from_scratch is True (then only active queue/job duplicates are skipped).
+        """
         if isinstance(tickers, str):
             tickers = _parse_tickers(tickers)
         else:
             tickers = _parse_tickers(" ".join(tickers))
         if not tickers:
-            return []
+            return {"created": [], "skipped": []}
 
         template = (template or "memo").strip().lower()
         mode = "fast" if mode == "fast" else "deep"
         created: list[QueueItem] = []
+        skipped: list[dict[str, str]] = []
+
+        from src.ticker_status import ticker_status
+
+        accepted: list[str] = []
+        for ticker in tickers:
+            if skip_existing:
+                status = ticker_status(ticker)
+                if status.get("in_overnight_queue") or status.get("queued_or_active"):
+                    skipped.append(
+                        {
+                            "ticker": ticker,
+                            "reason": status.get("skip_reason") or "already active",
+                        }
+                    )
+                    continue
+                if not from_scratch and status.get("has_research"):
+                    skipped.append(
+                        {
+                            "ticker": ticker,
+                            "reason": status.get("skip_reason") or "already researched",
+                        }
+                    )
+                    continue
+            accepted.append(ticker)
+
+        if not accepted:
+            return {"created": created, "skipped": skipped}
+
         with self._lock:
             conn = connect()
             try:
-                for ticker in tickers:
+                for ticker in accepted:
+                    # Re-check active queue under lock to avoid races.
+                    if skip_existing:
+                        row = conn.execute(
+                            "SELECT id, status FROM research_queue "
+                            "WHERE UPPER(ticker)=? AND status IN ('pending','running') LIMIT 1",
+                            (ticker,),
+                        ).fetchone()
+                        if row:
+                            skipped.append(
+                                {
+                                    "ticker": ticker,
+                                    "reason": f"already in overnight queue ({row['status']})",
+                                }
+                            )
+                            continue
                     pos = self._next_position(conn)
                     item = QueueItem(
                         id=str(uuid.uuid4()),
@@ -222,7 +274,7 @@ class ResearchQueueStore:
                 conn.commit()
             finally:
                 conn.close()
-        return created
+        return {"created": created, "skipped": skipped}
 
     def list_items(self, *, limit: int = 200, include_done: bool = True) -> list[QueueItem]:
         with self._lock:

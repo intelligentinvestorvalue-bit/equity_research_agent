@@ -484,22 +484,27 @@ async def api_queue_status() -> dict[str, Any]:
 @app.post("/api/queue")
 async def api_queue_add(body: QueueAddRequest) -> dict[str, Any]:
     _check_pin(body.pin)
-    created = queue_store.add_tickers(
+    result = queue_store.add_tickers(
         body.tickers,
         template=body.template or "memo",
         mode=body.mode,
         goal=body.goal or "",
         from_scratch=body.from_scratch,
+        skip_existing=True,
     )
-    if not created:
+    created = result["created"]
+    skipped = result["skipped"]
+    if not created and not skipped:
         raise HTTPException(status_code=400, detail="No valid tickers found")
-    # Ensure worker is not paused when user adds work
-    if queue_store.get_paused():
-        queue_store.set_paused(False)
-    _queue_kick()
+    if created:
+        if queue_store.get_paused():
+            queue_store.set_paused(False)
+        _queue_kick()
     return {
         "added": len(created),
         "tickers": [c.ticker for c in created],
+        "created": [c.to_dict() for c in created],
+        "skipped": skipped,
         "summary": queue_store.summary(),
         "items": [i.to_dict() for i in queue_store.list_items(limit=200)],
     }
@@ -517,18 +522,21 @@ async def queue_add_form(
 ) -> Any:
     try:
         _check_pin(pin)
-        created = queue_store.add_tickers(
+        result = queue_store.add_tickers(
             tickers,
             template=template or "memo",
             mode=mode,
             goal=goal or "",
             from_scratch=(from_scratch or "").lower() in {"on", "1", "true", "yes"},
+            skip_existing=True,
         )
-        if not created:
+        created = result["created"]
+        if not created and not result["skipped"]:
             raise HTTPException(status_code=400, detail="No valid tickers found")
-        if queue_store.get_paused():
-            queue_store.set_paused(False)
-        _queue_kick()
+        if created:
+            if queue_store.get_paused():
+                queue_store.set_paused(False)
+            _queue_kick()
     except HTTPException as exc:
         return templates.TemplateResponse(
             request,
@@ -652,6 +660,43 @@ async def sync_export() -> dict[str, Any]:
 @app.post("/api/research")
 async def start_research(body: ResearchRequest) -> dict[str, Any]:
     _check_pin(body.pin)
+    from src.ticker_status import ticker_status
+
+    status = ticker_status(body.ticker)
+    # Reuse in-flight work instead of spawning a duplicate job.
+    if status.get("queued_or_active") and status.get("active_jobs"):
+        existing = status["active_jobs"][0]
+        return {
+            "job_id": existing["id"],
+            "status": existing["status"],
+            "collaborative": False,
+            "from_scratch": bool(body.from_scratch),
+            "reused": True,
+            "message": f"Reused active job ({existing['status']})",
+        }
+    if status.get("in_overnight_queue"):
+        return {
+            "job_id": None,
+            "status": "queued",
+            "collaborative": False,
+            "from_scratch": bool(body.from_scratch),
+            "reused": True,
+            "in_overnight_queue": True,
+            "queue_items": status.get("queue_items") or [],
+            "message": status.get("skip_reason") or "Already in overnight queue",
+        }
+    if status.get("has_research") and not body.from_scratch:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": status.get("skip_reason") or "Ticker already researched",
+                "ticker": status.get("ticker"),
+                "latest_completed": status.get("latest_completed"),
+                "sync_reports": status.get("sync_reports"),
+                "hint": "Pass from_scratch=true to re-run",
+            },
+        )
+
     job_id = _start_job_flow(
         body.ticker,
         body.mode,
@@ -667,7 +712,16 @@ async def start_research(body: ResearchRequest) -> dict[str, Any]:
         "status": job.status,
         "collaborative": job.collaborative,
         "from_scratch": bool(body.from_scratch),
+        "reused": False,
     }
+
+
+@app.get("/api/tickers/{ticker}/status")
+async def api_ticker_status(ticker: str) -> dict[str, Any]:
+    """Whether a ticker is already queued, running, or has research documents."""
+    from src.ticker_status import ticker_status
+
+    return ticker_status(ticker)
 
 
 @app.post("/research", response_class=HTMLResponse)
