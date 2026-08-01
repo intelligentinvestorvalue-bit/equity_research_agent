@@ -90,18 +90,18 @@ API helpers: `POST /api/sync/import`, `POST /api/sync/export`.
 
 Styled static viewer of completed `data/sync/` packs — open from any browser, no laptop tunnel.
 
-```bash
+```powershell
 pip install markdown
-python scripts/build_pages_site.py   # writes docs/
+python scripts/build_pages_site.py          # writes docs/
+.\scripts\install_publish_sync.ps1          # auto push after research (Task Scheduler)
+.\scripts\publish_sync.ps1 -Force           # test publish now
 ```
 
 Enable once: GitHub **Settings → Pages → Deploy from branch → `main` / `/docs`**.
 
-Public URL:
+URL: `https://intelligentinvestorvalue-bit.github.io/equity_research_agent/`
 
-`https://intelligentinvestorvalue-bit.github.io/equity_research_agent/`
-
-Details: [GITHUB_PAGES.md](./GITHUB_PAGES.md).
+Privacy and auto-publish details: [GITHUB_PAGES.md](./GITHUB_PAGES.md).
 
 ## Fallbacks (built in)
 
