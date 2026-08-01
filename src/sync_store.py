@@ -147,6 +147,12 @@ def export_job(job: Job) -> Path | None:
         path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
     logger.info("Synced job %s (%s %s) → %s", job.id[:8], job.ticker, job.template, path)
+    try:
+        from src.publish_queue import request_publish
+
+        request_publish(f"job:{job.id[:8]}:{job.ticker}")
+    except Exception:  # noqa: BLE001
+        logger.debug("Publish flag not set", exc_info=True)
     return path
 
 
