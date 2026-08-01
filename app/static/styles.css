@@ -78,7 +78,7 @@ body {
   z-index: 1;
   isolation: isolate;
 }
-.wrap.wide { width: min(820px, 100%); }
+.wrap.wide { width: min(1100px, 100%); }
 
 .brand {
   font-size: 1.75rem;
@@ -295,48 +295,62 @@ button:active { background: var(--accent-dim); }
 }
 .report h1, .report h2, .report h3 { line-height: 1.25; }
 .report code { font-size: 0.9em; }
-.report table {
-  display: table;
+.report .table-scroll {
+  display: block;
   width: 100%;
-  min-width: 40rem;
-  border-collapse: collapse;
-  table-layout: fixed;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin: 0.65rem 0 1rem;
+}
+.report table,
+.report .fin-table {
+  display: table !important;
+  width: auto !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  border-collapse: collapse;
+  table-layout: auto !important;
+  margin: 0;
 }
 .report th,
 .report td {
-  padding: 0.55rem 0.7rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid #2a3a32;
   vertical-align: top;
   text-align: left;
-  overflow-wrap: break-word;
-  word-break: normal;
-  hyphens: manual;
+  /* Never stack $6.06B character-by-character */
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
+  hyphens: none !important;
 }
 .report thead th {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
-  white-space: nowrap;
   border-bottom: 1px solid #3a4a42;
 }
 .report tbody tr:last-child td { border-bottom: none; }
-/* Early proxy tracker / catalyst-style 4-col tables */
-.report th:nth-child(1),
-.report td:nth-child(1) { width: 18%; }
-.report th:nth-child(2),
-.report td:nth-child(2) { width: 18%; }
-.report th:nth-child(3),
-.report td:nth-child(3) { width: 40%; }
-.report th:nth-child(4),
-.report td:nth-child(4) { width: 24%; }
-/* 3-col tables (catalyst calendar, etc.) */
-.report table:has(th:nth-child(3):last-child) th:nth-child(1),
-.report table:has(th:nth-child(3):last-child) td:nth-child(1),
-.report table:has(th:nth-child(3):last-child) th:nth-child(2),
-.report table:has(th:nth-child(3):last-child) td:nth-child(2) { width: 22%; }
-.report table:has(th:nth-child(3):last-child) th:nth-child(3),
-.report table:has(th:nth-child(3):last-child) td:nth-child(3) { width: 56%; }
+.report th.num,
+.report td.num,
+.report th[align="right"],
+.report td[align="right"],
+.report th[style*="text-align:right"],
+.report td[style*="text-align:right"],
+.report th[style*="text-align: right"],
+.report td[style*="text-align: right"] {
+  text-align: right !important;
+}
+/* Proxy / catalyst prose may wrap inside scroll container */
+.report table.prose-table td.signal,
+.report table.prose-table td:nth-child(3) {
+  white-space: normal !important;
+  min-width: 14rem;
+  max-width: 32rem;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
 .report img {
   max-width: 100%;
   height: auto;

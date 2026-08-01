@@ -298,6 +298,16 @@ def _fmt_price(val: float | None) -> str:
     return f"${val:.2f}"
 
 
+def _fmt_shares(val: float | None) -> str:
+    if val is None:
+        return "—"
+    if val >= 1e9:
+        return f"{val / 1e9:.2f}B"
+    if val >= 1e6:
+        return f"{val / 1e6:.2f}M"
+    return f"{val:,.0f}"
+
+
 def format_valuation_markdown(valuation: dict[str, Any]) -> str:
     lines = [
         "## DCF valuation (base / bull / bear)",
@@ -313,21 +323,40 @@ def format_valuation_markdown(valuation: dict[str, Any]) -> str:
     lines += [
         f"- Spot price: {_fmt_price(_f(valuation.get('spot_price')))}",
         f"- Base revenue: {_fmt_money(_f(valuation.get('base_revenue')))}",
-        f"- Shares: {valuation.get('shares'):,.0f}" if valuation.get("shares") else "- Shares: —",
+        f"- Shares: {_fmt_shares(_f(valuation.get('shares')))}",
         f"- Net debt (Debt−Cash): {_fmt_money(_f(valuation.get('net_debt')))}",
         "",
-        "| Scenario | Growth | FCF margin | WACC | Term. g | Equity value | Share price | Upside |",
-        "|----------|--------|------------|------|---------|--------------|-------------|--------|",
     ]
+
+    # HTML table avoids markdown→CSS column crush on Equity value / Share price
+    headers = ["Scenario", "Growth", "FCF margin", "WACC", "Term. g", "Equity value", "Share price", "Upside"]
+    body_rows: list[str] = []
     for key in ("bear", "base", "bull"):
         sc = (valuation.get("scenarios") or {}).get(key) or {}
         p = sc.get("params") or {}
-        lines.append(
-            f"| {key} | {_fmt_pct(p.get('revenue_growth'))} | {_fmt_pct(p.get('fcf_margin'))} | "
-            f"{_fmt_pct(p.get('wacc'))} | {_fmt_pct(p.get('terminal_growth'))} | "
-            f"{_fmt_money(_f(sc.get('equity_value')))} | {_fmt_price(_f(sc.get('share_price')))} | "
-            f"{_fmt_pct(_f(sc.get('upside_vs_price')))} |"
+        cells = [
+            key,
+            _fmt_pct(p.get("revenue_growth")),
+            _fmt_pct(p.get("fcf_margin")),
+            _fmt_pct(p.get("wacc")),
+            _fmt_pct(p.get("terminal_growth")),
+            _fmt_money(_f(sc.get("equity_value"))),
+            _fmt_price(_f(sc.get("share_price"))),
+            _fmt_pct(_f(sc.get("upside_vs_price"))),
+        ]
+        tds = "".join(
+            f'<td class="num">{c}</td>' if i else f"<td>{c}</td>" for i, c in enumerate(cells)
         )
+        body_rows.append(f"<tr>{tds}</tr>")
+    ths = "".join(
+        f'<th class="num">{h}</th>' if i else f"<th>{h}</th>" for i, h in enumerate(headers)
+    )
+    lines.append(
+        '<div class="table-scroll"><table class="fin-table">'
+        f"<thead><tr>{ths}</tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table></div>"
+    )
     lines.append("")
 
     notes = valuation.get("notes") or []

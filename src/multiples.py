@@ -185,8 +185,17 @@ def format_multiples_markdown(result: dict[str, Any]) -> str:
             nd_s = f"{sign}${abs_v:,.0f}"
         lines.append(f"- Net debt used: {nd_s}")
     lines.append("")
-    lines.append("| Scenario | EBITDA | EV/EBITDA | Implied EV | Equity value | Implied price |")
-    lines.append("|---|---:|---:|---:|---:|---:|")
+    lines.append(
+        '<div class="table-scroll"><table class="fin-table">'
+        "<thead><tr>"
+        "<th>Scenario</th>"
+        '<th class="num">EBITDA</th>'
+        '<th class="num">EV/EBITDA</th>'
+        '<th class="num">Implied EV</th>'
+        '<th class="num">Equity value</th>'
+        '<th class="num">Implied price</th>'
+        "</tr></thead><tbody>"
+    )
     for key in ("bear", "base", "bull"):
         sc = (result.get("scenarios") or {}).get(key) or {}
         if not sc:
@@ -210,9 +219,16 @@ def format_multiples_markdown(result: dict[str, Any]) -> str:
             return f"{sign}${a:,.0f}"
 
         lines.append(
-            f"| {key} | {_m(ebitda)} | {f'{float(mult):.1f}x' if mult is not None else '—'} | "
-            f"{_m(ev)} | {_m(eq)} | {f'${float(px):.2f}' if px is not None else '—'} |"
+            "<tr>"
+            f"<td>{key}</td>"
+            f'<td class="num">{_m(ebitda)}</td>'
+            f'<td class="num">{f"{float(mult):.1f}x" if mult is not None else "—"}</td>'
+            f'<td class="num">{_m(ev)}</td>'
+            f'<td class="num">{_m(eq)}</td>'
+            f'<td class="num">{f"${float(px):.2f}" if px is not None else "—"}</td>'
+            "</tr>"
         )
+    lines.append("</tbody></table></div>")
     lines.append("")
     for n in result.get("notes") or []:
         lines.append(f"- {n}")

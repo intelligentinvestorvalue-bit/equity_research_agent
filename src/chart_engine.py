@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from src.config import OUTPUT_DIR
 
@@ -45,10 +45,92 @@ def _chart_path(out_dir: Path, ticker: str, key: str, name_tag: str = "") -> Pat
     return out_dir / f"{ticker.upper()}{tag}_{key}.png"
 
 
+def _pick_money_scale(values: Sequence[float | None]) -> tuple[float, str, str]:
+    """
+    Choose billions vs millions so chart axes stay readable.
+    Returns (divisor, y_axis_label, short_suffix) e.g. (1e9, 'USD billions', 'B').
+    """
+    mx = 0.0
+    for v in values:
+        if v is None:
+            continue
+        try:
+            mx = max(mx, abs(float(v)))
+        except (TypeError, ValueError):
+            continue
+    # Prefer billions when any point is ~$1B+ (avoids 12,000 on a "millions" axis)
+    if mx >= 1e9:
+        return 1e9, "USD billions", "B"
+    if mx >= 1e3:
+        return 1e6, "USD millions", "M"
+    return 1.0, "USD", ""
+
+
+def _scale_values(values: Sequence[float | None], divisor: float) -> list[float]:
+    out: list[float] = []
+    for v in values:
+        if v is None:
+            out.append(0.0)
+            continue
+        try:
+            out.append(float(v) / divisor)
+        except (TypeError, ValueError):
+            out.append(0.0)
+    return out
+
+
+def _fmt_scaled_label(raw: float | None, divisor: float, suffix: str) -> str:
+    if raw is None:
+        return "—"
+    try:
+        x = float(raw) / divisor
+    except (TypeError, ValueError):
+        return "—"
+    sign = "-" if x < 0 else ""
+    ax = abs(x)
+    if suffix == "B":
+        return f"{sign}${ax:.2f}B"
+    if suffix == "M":
+        body = f"{ax:.1f}" if ax >= 10 else f"{ax:.2f}"
+        return f"{sign}${body}M"
+    if ax >= 1000:
+        return f"{sign}${ax:,.0f}"
+    return f"{sign}${ax:.2f}"
+
+
+def _apply_money_yaxis(ax: Any, ylabel: str) -> None:
+    """Compact tick labels (no scientific notation / trailing zeros)."""
+    from matplotlib.ticker import FuncFormatter
+
+    def _tick(val: float, _pos: int) -> str:
+        if abs(val) >= 100:
+            return f"{val:,.0f}"
+        if abs(val) >= 10:
+            return f"{val:.1f}"
+        return f"{val:.2f}"
+
+    ax.yaxis.set_major_formatter(FuncFormatter(_tick))
+    ax.set_ylabel(ylabel)
+
+
+def _annotate_bars(ax: Any, bars: Any, raw_values: Sequence[float], divisor: float, suffix: str) -> None:
+    for bar, raw in zip(bars, raw_values):
+        h = bar.get_height()
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            h,
+            _fmt_scaled_label(raw, divisor, suffix),
+            ha="center",
+            va="bottom" if h >= 0 else "top",
+            fontsize=8,
+            color="#e8f0eb",
+        )
+
+
 def chart_revenue_fcf(
     ticker: str, fund: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
 ) -> Path | None:
-    """Bar chart of revenue and FCF history."""
+    """Bar chart of revenue and FCF history (axis in $M or $B)."""
     history = (fund or {}).get("history") or {}
     rev = list(reversed(history.get("revenue") or []))
     fcf = list(reversed(history.get("free_cash_flow") or []))
@@ -60,8 +142,6 @@ def chart_revenue_fcf(
     out_dir.mkdir(parents=True, exist_ok=True)
     path = _chart_path(out_dir, ticker, "revenue_fcf", name_tag)
 
-    # Align on periods
-    periods = []
     rev_map = {r["period"]: r["value"] for r in rev}
     fcf_map = {r["period"]: r["value"] for r in fcf}
     periods = sorted(set(rev_map) | set(fcf_map))
@@ -69,21 +149,30 @@ def chart_revenue_fcf(
         return None
 
     labels = [_fmt_year(p) for p in periods]
-    rev_vals = [(rev_map.get(p) or 0) / 1e6 for p in periods]
-    fcf_vals = [(fcf_map.get(p) or 0) / 1e6 for p in periods]
+    rev_raw = [float(rev_map.get(p) or 0) for p in periods]
+    fcf_raw = [float(fcf_map.get(p) or 0) for p in periods]
+    divisor, ylabel, suffix = _pick_money_scale([*rev_raw, *fcf_raw])
+    rev_vals = _scale_values(rev_raw, divisor)
+    fcf_vals = _scale_values(fcf_raw, divisor)
 
     fig, ax = plt.subplots(figsize=(8.2, 4.2))
     x = range(len(labels))
     width = 0.38
-    ax.bar([i - width / 2 for i in x], rev_vals, width=width, label="Revenue", color="#3d9b6e")
-    ax.bar([i + width / 2 for i in x], fcf_vals, width=width, label="FCF", color="#c9853a")
+    bars_rev = ax.bar(
+        [i - width / 2 for i in x], rev_vals, width=width, label="Revenue", color="#3d9b6e"
+    )
+    bars_fcf = ax.bar(
+        [i + width / 2 for i in x], fcf_vals, width=width, label="FCF", color="#c9853a"
+    )
     ax.axhline(0, color="#5a6e64", linewidth=0.8)
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
-    ax.set_ylabel("USD millions")
-    ax.set_title(f"{ticker.upper()} — Revenue & free cash flow")
+    _apply_money_yaxis(ax, ylabel)
+    ax.set_title(f"{ticker.upper()} — Revenue & free cash flow ({suffix or 'USD'})")
     ax.legend(frameon=False, labelcolor="#e8f0eb")
     ax.grid(True, axis="y", alpha=0.35)
+    _annotate_bars(ax, bars_rev, rev_raw, divisor, suffix)
+    _annotate_bars(ax, bars_fcf, fcf_raw, divisor, suffix)
     fig.tight_layout()
     fig.savefig(path, dpi=140, bbox_inches="tight")
     plt.close(fig)
@@ -145,7 +234,7 @@ def chart_dcf_scenarios(
 def chart_base_fcf_path(
     ticker: str, valuation: dict[str, Any], out_dir: Path | None = None, name_tag: str = ""
 ) -> Path | None:
-    """Line/bar of base-case projected FCF path."""
+    """Line/bar of base-case projected FCF path (axis in $M or $B)."""
     if not valuation or not valuation.get("ok"):
         return None
     base = (valuation.get("scenarios") or {}).get("base") or {}
@@ -159,14 +248,26 @@ def chart_base_fcf_path(
     path = _chart_path(out_dir, ticker, "base_fcf_path", name_tag)
 
     years = [c["year"] for c in cfs]
-    fcf = [float(c["fcf"]) / 1e6 for c in cfs]
+    fcf_raw = [float(c["fcf"]) for c in cfs]
+    divisor, ylabel, suffix = _pick_money_scale(fcf_raw)
+    fcf = _scale_values(fcf_raw, divisor)
 
     fig, ax = plt.subplots(figsize=(7.2, 4.0))
     ax.plot(years, fcf, marker="o", color="#3d9b6e", linewidth=2)
     ax.fill_between(years, fcf, alpha=0.2, color="#3d9b6e")
+    for x, y, raw in zip(years, fcf, fcf_raw):
+        ax.annotate(
+            _fmt_scaled_label(raw, divisor, suffix),
+            (x, y),
+            textcoords="offset points",
+            xytext=(0, 8),
+            ha="center",
+            fontsize=8,
+            color="#e8f0eb",
+        )
     ax.set_xlabel("Year")
-    ax.set_ylabel("Projected FCF (USD millions)")
-    ax.set_title(f"{ticker.upper()} — Base-case projected FCF")
+    _apply_money_yaxis(ax, f"Projected FCF ({ylabel})")
+    ax.set_title(f"{ticker.upper()} — Base-case projected FCF ({suffix or 'USD'})")
     ax.grid(True, alpha=0.35)
     fig.tight_layout()
     fig.savefig(path, dpi=140, bbox_inches="tight")

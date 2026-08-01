@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{{ ticker }} report</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260729" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260730b" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
@@ -153,12 +153,54 @@
     };
     const fallbackMd = {{ markdown|tojson }};
 
+    function enhanceReportTables(root) {
+      if (!root) return;
+      root.querySelectorAll("table").forEach((table) => {
+        table.classList.add("fin-table");
+        const colCount = table.querySelectorAll("thead th, tr:first-child th, tr:first-child td").length;
+        // Wide numeric tables (DCF / EV-EBITDA / peers): force single-line cells
+        const numericWide = colCount >= 5;
+        table.querySelectorAll("th, td").forEach((cell, idx) => {
+          const col = cell.cellIndex;
+          cell.style.whiteSpace = "nowrap";
+          cell.style.wordBreak = "keep-all";
+          cell.style.overflowWrap = "normal";
+          // Right-align numeric-looking columns (skip first label col)
+          if (col > 0 && numericWide) {
+            cell.classList.add("num");
+          }
+        });
+        // Proxy-style 3–4 col: allow the long middle/signal column to wrap
+        if (colCount > 0 && colCount <= 4) {
+          table.classList.add("prose-table");
+          table.querySelectorAll("tbody td:nth-child(3)").forEach((cell) => {
+            cell.classList.add("signal");
+            cell.style.whiteSpace = "normal";
+            cell.style.wordBreak = "normal";
+            cell.style.overflowWrap = "break-word";
+          });
+        }
+        if (!table.parentElement || !table.parentElement.classList.contains("table-scroll")) {
+          const wrap = document.createElement("div");
+          wrap.className = "table-scroll";
+          table.parentNode.insertBefore(wrap, table);
+          wrap.appendChild(table);
+        }
+      });
+    }
+
     Object.keys(tabMarkdown).forEach((id) => {
       const el = document.querySelector(`[data-md="${id}"]`);
-      if (el) el.innerHTML = marked.parse(tabMarkdown[id] || "");
+      if (el) {
+        el.innerHTML = marked.parse(tabMarkdown[id] || "");
+        enhanceReportTables(el);
+      }
     });
     const plain = document.getElementById("report");
-    if (plain) plain.innerHTML = marked.parse(fallbackMd || "");
+    if (plain) {
+      plain.innerHTML = marked.parse(fallbackMd || "");
+      enhanceReportTables(plain);
+    }
 
     function wireTabs(root) {
       if (!root) return;
