@@ -1,0 +1,39 @@
+# Optional: rebuild docs/ when sync packs change on main.
+# Primary deploy path is still "Pages → Deploy from branch → /docs".
+name: Rebuild Pages site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/sync/**"
+      - "scripts/build_pages_site.py"
+      - "scripts/pages_assets/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install markdown
+      - name: Build docs/
+        run: python scripts/build_pages_site.py
+      - name: Commit docs if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          if git diff --staged --quiet; then
+            echo "No docs changes"
+          else
+            git commit -m "chore: rebuild GitHub Pages report site"
+            git push
+          fi

@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>TUSK report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topnav">
+    <a class="topnav-brand" href="../index.html">Equity Research</a>
+    <nav class="topnav-links" aria-label="Site">
+      <a href="../index.html" class="active">Reports</a>
+    </nav>
+  </header>
+  
+  <main class="wrap wide">
+    <header class="row">
+      <div>
+        <p class="brand">TUSK report</p>
+        <p class="sub">deep · memo · 2026-07-20 19:57 UTC</p>
+        <p class='fine'>Goal: Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers</p>
+      </div>
+      <div class="actions">
+        <a class="btn secondary" href="../index.html">All reports</a>
+      </div>
+    </header>
+    <section class="chart-gallery" aria-label="Charts">
+        <figure class="chart-card">
+          <figcaption>TUSK revenue fcf</figcaption>
+          <img src="../charts/TUSK_revenue_fcf.png" alt="TUSK_revenue_fcf.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>TUSK dcf scenarios</figcaption>
+          <img src="../charts/TUSK_dcf_scenarios.png" alt="TUSK_dcf_scenarios.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>TUSK base fcf path</figcaption>
+          <img src="../charts/TUSK_base_fcf_path.png" alt="TUSK_base_fcf_path.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>TUSK ev ebitda scenarios</figcaption>
+          <img src="../charts/TUSK_ev_ebitda_scenarios.png" alt="TUSK_ev_ebitda_scenarios.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>TUSK peers normalized</figcaption>
+          <img src="../charts/TUSK_peers_normalized.png" alt="TUSK_peers_normalized.png" loading="lazy" />
+        </figure></section>
+    <article class="report">
+      <h1 id="tusk-planned-research-report">TUSK — Planned Research Report</h1>
+<blockquote>
+<p>Not investment advice. Local research draft only.</p>
+</blockquote>
+<p><strong>Goal:</strong> Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers<br />
+<strong>Mode:</strong> deep<br />
+<strong>Template:</strong> memo<br />
+<strong>Planner:</strong> template</p>
+<h2 id="plan-executed">Plan executed</h2>
+<ul>
+<li><strong>(1) Snapshot, KPIs &amp; capital structure</strong> (<code>fundamentals</code>): get_fundamentals</li>
+<li>Multi-year KPI table, leverage, EV/EBITDA snapshot. Focus: institutional deep-dive: thesis, priced-in scenarios, catalysts, falsifiers</li>
+<li><strong>(2) EV/EBITDA priced-in scenarios</strong> (<code>multiples</code>): run_ev_ebitda</li>
+<li>Bear/base/bull EBITDA × multiple → implied equity value</li>
+<li><strong>(3) DCF cross-check</strong> (<code>valuation</code>): run_dcf</li>
+<li>FCF DCF as second valuation lens vs multiples</li>
+<li><strong>(4) Peer &amp; factor comps</strong> (<code>peers</code>): get_peer_comps</li>
+<li>Heuristic sector peers: returns, EV/EBITDA, leverage, volatility</li>
+<li><strong>(5) Earnings &amp; surprise history</strong> (<code>earnings</code>): get_earnings</li>
+<li>EPS estimate vs actual vs 1-day move when available</li>
+<li><strong>(6a) Street / narrative web</strong> (<code>web_analysts</code>): search_web</li>
+<li>Analyst targets, thesis debates, guidance headlines</li>
+<li><strong>(6b) Drivers &amp; proxies</strong> (<code>web_drivers</code>): search_web</li>
+<li>Operating KPIs, contracts, refinancing, sector drivers</li>
+<li><strong>(7a) SEC 10-K intake</strong> (<code>sec_fetch</code>): fetch_10k</li>
+<li>Latest 10-K for risks and MD&amp;A</li>
+<li><strong>(7b) Recent 10-Q / 8-K headlines</strong> (<code>recent_filings</code>): fetch_recent_filings</li>
+<li>Catalyst calendar inputs — meta only, not full parse</li>
+<li><strong>(7c) Risk factors (Item 1A)</strong> (<code>risks</code>): summarize_item_1a</li>
+<li>Falsification inputs from filing risks</li>
+<li><strong>(7d) MD&amp;A (Item 7)</strong> (<code>mda</code>): summarize_item_7</li>
+<li>Business model and guidance cues</li>
+<li><strong>(8) Quarterly driver correlations</strong> (<code>drivers</code>): analyze_drivers</li>
+<li>Suggestive FCF/revenue/debt vs return correlations (small-n caveats)</li>
+<li><strong>(9) Thesis memo sections</strong> (<code>memo</code>): draft_memo_sections</li>
+<li>Exec summary, variant perception, catalysts, falsifiers, limitations</li>
+</ul>
+<h2 id="fundamentals-s1">Fundamentals [S1]</h2>
+<ul>
+<li>Company: Mammoth Energy Services, Inc.</li>
+<li>Sector / industry: Industrials / Conglomerates</li>
+<li>Price: 2.685</li>
+<li>52-week range: $1.72 – $3.92</li>
+<li>Market cap: $129.34M</li>
+<li>Enterprise value: $13.62M</li>
+<li>Shares outstanding: 48.17M</li>
+<li>Beta: 1.109</li>
+<li>Book equity: $258.29M</li>
+<li>Revenue (latest): $44.29M</li>
+<li>EBITDA (latest): -$17.84M</li>
+<li>Free cash flow (latest): -$89.12M</li>
+<li>Operating income: -$28.14M</li>
+<li>Operating margin: -63.5%</li>
+<li>EV / EBITDA: -0.8x</li>
+<li>ROIC: -17.6%</li>
+<li>FCF yield: -68.9%</li>
+<li>Debt / Equity: 0.013341696091185034</li>
+<li>FCF / share: -$1.85</li>
+<li>Revenue / share: $0.92</li>
+</ul>
+<h3 id="capital-structure">Capital structure</h3>
+<ul>
+<li>Cash: $101.99M</li>
+<li>Short-term debt: —</li>
+<li>Long-term debt: $3.45M</li>
+<li>Total debt: $3.45M</li>
+<li>Net debt: -$98.54M</li>
+<li>Net debt / EBITDA: 5.5x</li>
+</ul>
+<h3 id="growth">Growth</h3>
+<ul>
+<li>Revenue CAGR: -50.4%</li>
+<li>FCF CAGR: —</li>
+<li>Latest revenue YoY: -2.9%</li>
+<li>Latest FCF YoY: -149.6%</li>
+</ul>
+<h3 id="market-expectations-yfinance-sparse">Market expectations (yfinance, sparse)</h3>
+<ul>
+<li>Mean target: —</li>
+<li>Target range: — – —</li>
+<li>Recommendation: none</li>
+</ul>
+<p><em>Consensus revenue/EBITDA forecasts are often unavailable via free feeds; treat targets as point-in-time only.</em></p>
+<h3 id="historical-kpis-multi-year">Historical KPIs (multi-year)</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Year</th>
+<th style="text-align: right;">Revenue</th>
+<th style="text-align: right;">OCF</th>
+<th style="text-align: right;">Capex</th>
+<th style="text-align: right;">FCF</th>
+<th style="text-align: right;">EBITDA</th>
+<th style="text-align: right;">LT debt</th>
+<th style="text-align: right;">Cash</th>
+<th style="text-align: right;">Net debt</th>
+<th style="text-align: right;">Net income</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2025</td>
+<td style="text-align: right;">$44.29M</td>
+<td style="text-align: right;">-$18.57M</td>
+<td style="text-align: right;">$70.55M</td>
+<td style="text-align: right;">-$89.12M</td>
+<td style="text-align: right;">-$17.84M</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">$101.99M</td>
+<td style="text-align: right;">-$101.99M</td>
+<td style="text-align: right;">$4.60M</td>
+</tr>
+<tr>
+<td>2024</td>
+<td style="text-align: right;">$45.60M</td>
+<td style="text-align: right;">$180.72M</td>
+<td style="text-align: right;">$1.21M</td>
+<td style="text-align: right;">$179.50M</td>
+<td style="text-align: right;">-$173.21M</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">$60.84M</td>
+<td style="text-align: right;">-$60.84M</td>
+<td style="text-align: right;">-$207.33M</td>
+</tr>
+<tr>
+<td>2023</td>
+<td style="text-align: right;">$309.49M</td>
+<td style="text-align: right;">$31.39M</td>
+<td style="text-align: right;">$19.39M</td>
+<td style="text-align: right;">$11.99M</td>
+<td style="text-align: right;">$70.44M</td>
+<td style="text-align: right;">$42.81M</td>
+<td style="text-align: right;">$16.56M</td>
+<td style="text-align: right;">$26.25M</td>
+<td style="text-align: right;">-$3.16M</td>
+</tr>
+<tr>
+<td>2022</td>
+<td style="text-align: right;">$362.09M</td>
+<td style="text-align: right;">$15.27M</td>
+<td style="text-align: right;">$12.74M</td>
+<td style="text-align: right;">$2.53M</td>
+<td style="text-align: right;">$88.77M</td>
+<td style="text-align: right;">$6.05M</td>
+<td style="text-align: right;">$17.28M</td>
+<td style="text-align: right;">-$11.23M</td>
+<td style="text-align: right;">-$619.00K</td>
+</tr>
+<tr>
+<td>2021</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">$85.24M</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">$85.24M</td>
+<td style="text-align: right;">—</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="charts">Charts</h2>
+<h3 id="revenue-fcf-history">Revenue &amp; FCF history</h3>
+<p><img alt="Revenue &amp; FCF history" src="../charts/TUSK_revenue_fcf.png" /></p>
+<h3 id="dcf-scenario-prices">DCF scenario prices</h3>
+<p><img alt="DCF scenario prices" src="../charts/TUSK_dcf_scenarios.png" /></p>
+<h3 id="base-case-fcf-path">Base-case FCF path</h3>
+<p><img alt="Base-case FCF path" src="../charts/TUSK_base_fcf_path.png" /></p>
+<h3 id="evebitda-scenario-prices">EV/EBITDA scenario prices</h3>
+<p><img alt="EV/EBITDA scenario prices" src="../charts/TUSK_ev_ebitda_scenarios.png" /></p>
+<h3 id="normalized-price-vs-peers">Normalized price vs peers</h3>
+<p><img alt="Normalized price vs peers" src="../charts/TUSK_peers_normalized.png" /></p>
+<h2 id="dcf-valuation-base-bull-bear-s3">DCF valuation (base / bull / bear) [S3]</h2>
+<blockquote>
+<p>Simplified revenue-&gt;FCF DCF. Not investment advice; assumptions are editable heuristics.</p>
+</blockquote>
+<ul>
+<li>Spot price: $2.69</li>
+<li>Base revenue: $44.29M</li>
+<li>Shares: 48,170,647</li>
+<li>Net debt (Debt−Cash): -$98.54M</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Growth</th>
+<th>FCF margin</th>
+<th>WACC</th>
+<th>Term. g</th>
+<th>Equity value</th>
+<th>Share price</th>
+<th>Upside</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td>-2.9%</td>
+<td>1.0%</td>
+<td>12.0%</td>
+<td>1.5%</td>
+<td>$102.12M</td>
+<td>$2.12</td>
+<td>-21.0%</td>
+</tr>
+<tr>
+<td>base</td>
+<td>6.0%</td>
+<td>3.0%</td>
+<td>10.0%</td>
+<td>2.5%</td>
+<td>$119.58M</td>
+<td>$2.48</td>
+<td>-7.5%</td>
+</tr>
+<tr>
+<td>bull</td>
+<td>15.0%</td>
+<td>8.0%</td>
+<td>9.0%</td>
+<td>3.0%</td>
+<td>$198.92M</td>
+<td>$4.13</td>
+<td>53.8%</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="assumption-notes">Assumption notes</h3>
+<ul>
+<li>Base revenue growth seeded from historical rate (-2.9%).</li>
+<li>Recent revenue declined (-2.9% YoY); base/bull use normalized mid-cycle growth instead of extrapolating the decline.</li>
+<li>Latest FCF margin was -201.2%; scenarios use normalized positive margins for a going-concern DCF.</li>
+</ul>
+<h3 id="base-case-projected-fcf">Base-case projected FCF</h3>
+<ul>
+<li>Year 1: revenue $46.95M, FCF $1.41M (PV $1.28M)</li>
+<li>Year 2: revenue $49.77M, FCF $1.49M (PV $1.23M)</li>
+<li>Year 3: revenue $52.75M, FCF $1.58M (PV $1.19M)</li>
+<li>Year 4: revenue $55.92M, FCF $1.68M (PV $1.15M)</li>
+<li>Year 5: revenue $59.27M, FCF $1.78M (PV $1.10M)</li>
+<li>Terminal value $24.30M (PV $15.09M)</li>
+</ul>
+<h2 id="valuation-evebitda-scenarios-s2">Valuation — EV/EBITDA scenarios [S2]</h2>
+<blockquote>
+<p>Priced-in model: implied price = (EBITDA × EV/EBITDA − net debt) ÷ shares. Not a forecast.</p>
+</blockquote>
+<ul>
+<li>Spot: $2.69</li>
+<li>Net debt used: -$98.54M</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th style="text-align: right;">EBITDA</th>
+<th style="text-align: right;">EV/EBITDA</th>
+<th style="text-align: right;">Implied EV</th>
+<th style="text-align: right;">Equity value</th>
+<th style="text-align: right;">Implied price</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td style="text-align: right;">$700.00M</td>
+<td style="text-align: right;">6.0x</td>
+<td style="text-align: right;">$4.20B</td>
+<td style="text-align: right;">$4.30B</td>
+<td style="text-align: right;">$89.24</td>
+</tr>
+<tr>
+<td>base</td>
+<td style="text-align: right;">$1.00B</td>
+<td style="text-align: right;">8.0x</td>
+<td style="text-align: right;">$8.00B</td>
+<td style="text-align: right;">$8.10B</td>
+<td style="text-align: right;">$168.12</td>
+</tr>
+<tr>
+<td>bull</td>
+<td style="text-align: right;">$1.20B</td>
+<td style="text-align: right;">10.0x</td>
+<td style="text-align: right;">$12.00B</td>
+<td style="text-align: right;">$12.10B</td>
+<td style="text-align: right;">$251.16</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>EBITDA missing or non-positive; scenarios use placeholder $1B EBITDA — edit before relying on prices.</li>
+<li>No current EV/EBITDA; defaulted base multiple to 8.0x.</li>
+</ul>
+<h2 id="peer-factor-comps">Peer &amp; factor comps</h2>
+<ul>
+<li>Sector / industry: Industrials / Conglomerates</li>
+<li>Peers: —</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Ticker</th>
+<th style="text-align: right;">Mkt cap</th>
+<th style="text-align: right;">EV/EBITDA</th>
+<th style="text-align: right;">ND/EBITDA</th>
+<th style="text-align: right;">Beta</th>
+<th style="text-align: right;">1y</th>
+<th style="text-align: right;">5y</th>
+<th style="text-align: right;">Vol</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TUSK</td>
+<td style="text-align: right;">$129.3M</td>
+<td style="text-align: right;">-1.0x</td>
+<td style="text-align: right;">9.1x</td>
+<td style="text-align: right;">1.11</td>
+<td style="text-align: right;">4.5%</td>
+<td style="text-align: right;">-32.9%</td>
+<td style="text-align: right;">72.4%</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>No industry peer map match; comps limited to the subject ticker.</li>
+</ul>
+<p><em>Price returns are price-only (dividends ignored). Peer set is heuristic, not a formal comps universe.</em></p>
+<h2 id="earnings-guidance-revision-catalysts">Earnings, guidance &amp; revision catalysts</h2>
+<ul>
+<li>Next earnings (calendar): 2026-08-07</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Date</th>
+<th style="text-align: right;">EPS est</th>
+<th style="text-align: right;">EPS actual</th>
+<th style="text-align: right;">Surprise</th>
+<th style="text-align: right;">1-day move</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2023-04-27</td>
+<td style="text-align: right;">-0.06</td>
+<td style="text-align: right;">0.17</td>
+<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">-5.4%</td>
+</tr>
+<tr>
+<td>2020-05-11</td>
+<td style="text-align: right;">-0.65</td>
+<td style="text-align: right;">-0.36</td>
+<td style="text-align: right;">0.29</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2020-02-27</td>
+<td style="text-align: right;">-0.60</td>
+<td style="text-align: right;">-0.58</td>
+<td style="text-align: right;">0.02</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2019-11-07</td>
+<td style="text-align: right;">-0.46</td>
+<td style="text-align: right;">-0.67</td>
+<td style="text-align: right;">-0.21</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2019-08-01</td>
+<td style="text-align: right;">-0.09</td>
+<td style="text-align: right;">-0.24</td>
+<td style="text-align: right;">-0.15</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2019-05-01</td>
+<td style="text-align: right;">0.66</td>
+<td style="text-align: right;">0.63</td>
+<td style="text-align: right;">-0.03</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2019-03-14</td>
+<td style="text-align: right;">0.64</td>
+<td style="text-align: right;">1.61</td>
+<td style="text-align: right;">0.97</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2018-10-31</td>
+<td style="text-align: right;">1.07</td>
+<td style="text-align: right;">1.54</td>
+<td style="text-align: right;">0.47</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2018-08-06</td>
+<td style="text-align: right;">1.46</td>
+<td style="text-align: right;">0.95</td>
+<td style="text-align: right;">-0.51</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2018-05-02</td>
+<td style="text-align: right;">1.66</td>
+<td style="text-align: right;">1.24</td>
+<td style="text-align: right;">-0.42</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2018-02-21</td>
+<td style="text-align: right;">0.58</td>
+<td style="text-align: right;">1.56</td>
+<td style="text-align: right;">0.98</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+<tr>
+<td>2017-11-01</td>
+<td style="text-align: right;">0.01</td>
+<td style="text-align: right;">-0.02</td>
+<td style="text-align: right;">-0.03</td>
+<td style="text-align: right;">-0.7%</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>EPS surprise vs 1-day move Pearson r=-0.063 (n=12, p≈0.843); treat as suggestive only.</em></p>
+<p><em>Guidance vs Street and adjusted EBITDA are often missing from free feeds; use web/SEC sections for narrative guidance.</em></p>
+<h2 id="recent-sec-filings-10-q-8-k">Recent SEC filings (10-Q / 8-K)</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Form</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-06-26</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828026045745/tusk-20260625.htm">8-K</a></td>
+</tr>
+<tr>
+<td>2026-05-15</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828026035328/tusk-20260513.htm">8-K</a></td>
+</tr>
+<tr>
+<td>2026-05-11</td>
+<td>10-Q</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828026033686/tusk-20260331.htm">10-Q</a></td>
+</tr>
+<tr>
+<td>2026-05-11</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828026033142/tusk-20260511.htm">8-K</a></td>
+</tr>
+<tr>
+<td>2026-03-06</td>
+<td>10-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828026015693/tusk-20251231.htm">10-K</a></td>
+</tr>
+<tr>
+<td>2026-03-06</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828026015465/tusk-20260306.htm">8-K</a></td>
+</tr>
+<tr>
+<td>2025-12-04</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000167926825000046/tusk-20251202.htm">8-K</a></td>
+</tr>
+<tr>
+<td>2025-11-03</td>
+<td>10-Q</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000167926825000039/tusk-20250930.htm">10-Q</a></td>
+</tr>
+<tr>
+<td>2025-10-31</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000167926825000036/tusk-20251031.htm">8-K</a></td>
+</tr>
+<tr>
+<td>2025-08-08</td>
+<td>10-Q</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828025039262/tusk-20250630.htm">10-Q</a></td>
+</tr>
+<tr>
+<td>2025-08-08</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828025039122/tusk-20250808.htm">8-K</a></td>
+</tr>
+<tr>
+<td>2025-07-03</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1679268/000162828025034133/tusk-20250630.htm">8-K</a></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Headlines/meta only — documents not fully parsed in this pass.</em></p>
+<h2 id="key-driver-analysis-quarterly">Key driver analysis (quarterly)</h2>
+<p>Pearson / Spearman correlations of quarterly stock returns with fundamentals.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Driver</th>
+<th style="text-align: right;">Pearson r</th>
+<th style="text-align: right;">p</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">Spearman ρ</th>
+<th style="text-align: right;">p</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Revenue growth (YoY)</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>Free cash flow</td>
+<td style="text-align: right;">-0.472</td>
+<td style="text-align: right;">0.354</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">-0.600</td>
+<td style="text-align: right;">0.194</td>
+</tr>
+<tr>
+<td>FCF margin</td>
+<td style="text-align: right;">-0.419</td>
+<td style="text-align: right;">0.425</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">-0.800</td>
+<td style="text-align: right;">0.021</td>
+</tr>
+<tr>
+<td>Operating cash flow</td>
+<td style="text-align: right;">-0.571</td>
+<td style="text-align: right;">0.228</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">-0.700</td>
+<td style="text-align: right;">0.090</td>
+</tr>
+<tr>
+<td>Long-term debt level</td>
+<td style="text-align: right;">-0.543</td>
+<td style="text-align: right;">0.263</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">-0.300</td>
+<td style="text-align: right;">0.586</td>
+</tr>
+<tr>
+<td>EBITDA</td>
+<td style="text-align: right;">-0.173</td>
+<td style="text-align: right;">0.761</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">-0.300</td>
+<td style="text-align: right;">0.586</td>
+</tr>
+<tr>
+<td>Capex (abs)</td>
+<td style="text-align: right;">0.389</td>
+<td style="text-align: right;">0.465</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">0.600</td>
+<td style="text-align: right;">0.194</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="regime-check-fcf">Regime check (FCF)</h3>
+<ul>
+<li>
+<p>later: r=-0.472 (n=5, p≈0.354)</p>
+</li>
+<li>
+<p>Correlations describe association, not causation.</p>
+</li>
+<li>Small samples (especially regime splits) are directional only.</li>
+<li>Regime split at 2023-12-31 (sample midpoint); directional only.</li>
+</ul>
+<h2 id="executive-summary">Executive summary</h2>
+<p>Mammoth Energy Services, Inc. (TUSK) trades near 2.685 with market cap $129.34M and EV $13.62M. Net debt is -$98.54M (ND/EBITDA 5.522669954604046). Latest revenue $44.29M, EBITDA -$17.84M, FCF -$89.12M.</p>
+<p><strong>Goal focus:</strong> Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers.</p>
+<p>What matters most (framework): balance-sheet trajectory, cash generation vs leverage, and whether market expectations (sparse free-data targets) already price execution risk.</p>
+<p>EV/EBITDA implied prices — bear $89.24 / base $168.12 / bull $251.16.</p>
+<h2 id="company-setup-business-model">Company setup &amp; business model</h2>
+<p>Sector/industry: Industrials / Conglomerates. Detail the competitive position, revenue mix, and strategic pivots from SEC MD&amp;A and web sources in adjacent report tabs. This skeleton does not invent segment KPIs.</p>
+<h2 id="variant-perception">Variant perception</h2>
+<ul>
+<li><strong>Consensus frame (sparse):</strong> recommendation=none, mean target=—.</li>
+<li><strong>Bear:</strong> leverage and execution risk dominate; cash generation fails to cover refinancing / reinvestment needs; equity remains constrained by net debt.</li>
+<li><strong>Bull:</strong> cash-flow and strategic optionality re-rate the equity as leverage falls and growth/mix improves.</li>
+<li><strong>Middle:</strong> returns may track free-cash-flow more than headline revenue — verify with driver analysis tab.</li>
+</ul>
+<h2 id="catalysts-monitoring">Catalysts &amp; monitoring</h2>
+<ul>
+<li>Next earnings window (calendar): 2026-08-07</li>
+<li>Peer tape to watch: n/a</li>
+<li>Monitor: FCF vs net debt, leverage (ND/EBITDA), refinancing headlines, and material 8-K strategy updates.</li>
+<li>Recent filing: 8-K on 2026-06-26 — 8-K</li>
+<li>Recent filing: 8-K on 2026-05-15 — 8-K</li>
+<li>Recent filing: 10-Q on 2026-05-11 — 10-Q</li>
+<li>Recent filing: 8-K on 2026-05-11 — 8-K</li>
+<li>Recent filing: 10-K on 2026-03-06 — 10-K</li>
+</ul>
+<h2 id="falsification-triggers">Falsification triggers</h2>
+<ul>
+<li>Leverage (net debt/EBITDA) re-rises sustainably above prior repaired levels without offsetting EBITDA growth.</li>
+<li>Underlying FCF (ex one-times, when identifiable) trends below levels needed to service debt and fund required capex.</li>
+<li>Strategic thesis KPIs (from filings/web) stall for consecutive reporting periods.</li>
+<li>Distressed refinancing, covenant stress, or major customer/contract loss headlines.</li>
+</ul>
+<h2 id="source-quality-limitations">Source quality &amp; limitations</h2>
+<ul>
+<li>Quantitative data from yfinance (statements, prices, sparse targets); qualitative from SEC + public web.</li>
+<li>Consensus revenue/EBITDA estimates and adjusted metrics are often unavailable — do not treat missing fields as zero.</li>
+<li>Peer sets are heuristic by sector/industry keyword maps.</li>
+<li>This is a local research draft only — not investment advice and not a rating.</li>
+</ul>
+<h2 id="early-proxy-tracker">Early proxy tracker</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Proxy</th>
+<th>Why it matters</th>
+<th>Current signal</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Guidance / outlook</td>
+<td>Forward cash/earnings path</td>
+<td>TUSK Forecast, Price Target &amp; Analyst Ratings / ChartMill.com 7 analysts have analysed TUSK and the average price target is 4.28 USD. This implies a price increase of 53% is expect</td>
+<td>TUSK Forecast, Price Target &amp; Analyst Ratings</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Proxies are heuristic extractions from public web/SEC context; verify against primary filings.</em></p>
+<h2 id="catalyst-calendar">Catalyst calendar</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Window</th>
+<th>Catalyst</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-08-07</td>
+<td>Earnings</td>
+<td>Next report date from yfinance calendar</td>
+</tr>
+<tr>
+<td>2026-06-26</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>2026-05-15</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>2026-05-11</td>
+<td>10-Q</td>
+<td>10-Q</td>
+</tr>
+<tr>
+<td>2026-05-11</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>2026-03-06</td>
+<td>10-K</td>
+<td>10-K</td>
+</tr>
+<tr>
+<td>2026-03-06</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>2025-12-04</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>2025-11-03</td>
+<td>10-Q</td>
+<td>10-Q</td>
+</tr>
+<tr>
+<td>2025-10-31</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>2025-08-08</td>
+<td>10-Q</td>
+<td>10-Q</td>
+</tr>
+<tr>
+<td>2025-08-08</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>2025-07-03</td>
+<td>8-K</td>
+<td>8-K</td>
+</tr>
+<tr>
+<td>Feb 26, 2026</td>
+<td>Web event</td>
+<td>Investor Bradley Tusk: Market falling prey to letting narrative dictate ...</td>
+</tr>
+<tr>
+<td>May 19, 2025</td>
+<td>Web event</td>
+<td>JPMorgan investor day kicks off - CNBC</td>
+</tr>
+<tr>
+<td>Apr 7, 2026</td>
+<td>Web event</td>
+<td>Understanding Demand: Key Determinants and the Demand Curve</td>
+</tr>
+<tr>
+<td>Jan 21, 2025</td>
+<td>Web event</td>
+<td>Market Demand: Definition, How to Calculate, Determinants</td>
+</tr>
+<tr>
+<td>Dec 2, 2025</td>
+<td>Web event</td>
+<td>Mammoth Energy Services, Inc. Announces Sale of Engineering ...</td>
+</tr>
+<tr>
+<td>Feb 05, 2026</td>
+<td>Web event</td>
+<td>Press Releases - Mammoth Energy Services, Inc.</td>
+</tr>
+<tr>
+<td>Feb 17, 2021</td>
+<td>Web event</td>
+<td>Mammoth Energy Announces Growth of Engineering Services ...</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="web-research-web_analysts">Web research — web_analysts</h2>
+<ul>
+<li>Queries: TUSK analyst price target, Mammoth Energy Services, Inc. stock rating OR consensus OR upgrade OR downgrade, TUSK guidance OR investor day OR catalyst</li>
+<li>Unique hits: 11</li>
+<li>Pages fetched: 1/3</li>
+</ul>
+<h3 id="web-synthesis-web_analysts-rule-based-fallback-ollama-unavailable">Web synthesis — web_analysts (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> none</p>
+<ul>
+<li>No keyword highlights found.</li>
+</ul>
+<h3 id="sources-found">Sources found</h3>
+<ul>
+<li><a href="https://www.chartmill.com/stock/quote/TUSK/analyst-ratings">TUSK Forecast, Price Target &amp; Analyst Ratings | ChartMill.com</a></li>
+<li>7 analysts have analysed TUSK and the average price target is 4.28 USD. This implies a price increase of 53% is expected in the next year compared to the ...</li>
+<li><a href="https://valueinvesting.io/TUSK/estimates">TUSK Stock Forecast &amp; Price Target | Mammoth Energy Services Inc ...</a></li>
+<li>The average stock forecast for Mammoth Energy Services Inc (TUSK) is 4.28 USD. This price target corresponds to an upside of 36.87%. The range of stock ...</li>
+<li><a href="https://finance.yahoo.com/quote/TUSK/">Mammoth Energy Services, Inc. (TUSK) - Yahoo Finance</a></li>
+<li>Find the latest Mammoth Energy Services, Inc. (TUSK) stock quote, history, news and other vital information to help you with your stock trading and ...</li>
+<li><a href="https://stockinvest.us/stock/TUSK">TUSK - Mammoth Energy Services Stock Forecast - StockInvest.us</a></li>
+<li>Given the current short-term trend, the stock is expected to rise 9.16% during the next 3 months and, with a 90% probability hold a price between $2.85 and ...</li>
+<li><a href="https://www.marketwatch.com/tools/upgrades-downgrades">Analyst Upgrades &amp; Downgrades - MarketWatch</a></li>
+<li>Real-time information on stock upgrades and downgrades by MarketWatch. View information on strong stocks to buy and weak stocks to sell.</li>
+<li><a href="https://m.marketscreener.com/tools/stock-screener/top-consensus/">Stock Screener: Best Stocks Consensus Opinion Analysts | MarketScreener</a></li>
+<li>A surprise rate measures the difference between the consensus (average estimated value by the analysts covering the company) of an accounting item the day be…</li>
+<li><a href="https://www.fool.com/terms/u/upgrades-downgrades/">What Are Stock Upgrades &amp; Downgrades? | The Motley Fool</a></li>
+<li>What does a downgrade mean for stocks? When a stock analyst changes his or her opinion of a stock, making either an upgrade or a downgrade, it can sometimes …</li>
+<li><a href="https://consensus.app/">Consensus: AI for Research</a></li>
+<li>Consensus is an AI academic search engine for peer-reviewed literature—your research OS for finding, organizing, and analyzing science 10x faster.</li>
+<li><a href="https://www.cnbc.com/video/2026/02/26/investor-bradley-tusk-market-falling-prey-to-letting-narrative-dictate-everything.html">Investor Bradley Tusk: Market falling prey to letting narrative dictate ...</a></li>
+<li>Feb 26, 2026 ... Bradley Tusk, Tusk Ventures, joins 'Closing Bell Overtime' to talk the state of the tech and software trades, how private investing is ...</li>
+<li><a href="https://www.cnbc.com/video/2025/05/19/jpmorgan-investor-day-kicks-off.html">JPMorgan investor day kicks off - CNBC</a></li>
+<li>May 19, 2025 ... JPMorgan investor day kicks off. CNBC's Leslie Picker joins 'Squawk on ... Watch CNBC's full interview with Tusk Ventures CEO Bradley Tusk.</li>
+<li><a href="https://finance.yahoo.com/video/investor-issues-stark-warning-retail-141638725.html">Investor issues stark warning to retail buyers chasing SpaceX ...</a></li>
+<li>8 days ago ... Bradley Tusk, CEO of Tusk Ventures, shares his investment strategy for high-valuation AI IPOs such as SpaceX, OpenAI and Anthropic. He ...</li>
+</ul>
+<h3 id="search-warnings">Search warnings</h3>
+<ul>
+<li>news:TUSK analyst price target: No results found.</li>
+<li>news:Mammoth Energy Services, Inc. stock rating OR consensus OR upgrade OR downgrade: No results found.</li>
+<li>news:TUSK guidance OR investor day OR catalyst: No results found.</li>
+</ul>
+<h2 id="web-research-web_drivers">Web research — web_drivers</h2>
+<ul>
+<li>Queries: Mammoth Energy Services, Inc. TUSK outlook OR catalyst OR commodity OR uranium OR rare earth OR vanadium, TUSK sector drivers OR market demand, Mammoth Energy Services, Inc. TUSK backlog OR contract OR refinancing OR leverage</li>
+<li>Unique hits: 12</li>
+<li>Pages fetched: 1/3</li>
+</ul>
+<h3 id="web-synthesis-web_drivers-rule-based-fallback-ollama-unavailable">Web synthesis — web_drivers (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> revenue</p>
+<ul>
+<li>(TUSK) 7-Day Stock Price Changes.Earnings announcements often act as important catalysts for TUSK, as they provide updated information on revenue, profitability and management's outlook.</li>
+</ul>
+<h3 id="sources-found_1">Sources found</h3>
+<ul>
+<li><a href="https://finance.yahoo.com/quote/TUSK/">Mammoth Energy Services, Inc. (TUSK) Stock Price... - Yahoo Finance</a></li>
+<li>Find the latest Mammoth Energy Services, Inc. (TUSK) stock quote, history, news and other vital information to help you with your stock trading and investing.</li>
+<li><a href="https://seekingalpha.com/symbol/TUSK">Mammoth Energy Services, Inc. (TUSK) Stock Price... | Seeking Alpha</a></li>
+<li>TUSK Mammoth Energy Services, Inc. Stock Price &amp; Overview.Mammoth Energy Services, Inc. operates as an energy services company in the United States, Canada, …</li>
+<li><a href="https://in.investing.com/equities/mammoth-energy-services-inc">Mammoth Energy Services Share Price Today | NASDAQ: TUSK...</a></li>
+<li>View the real-time Mammoth Energy Services Inc (NASDAQ TUSK) share price. Assess historical data, charts, technical analysis and contribute in the forum.</li>
+<li><a href="https://www.mexc.com/stocks/tusk">TUSK Price Today: Mammoth Energy Services, Inc. Stock... | MEXC</a></li>
+<li>Mammoth Energy Services, Inc. (TUSK) 7-Day Stock Price Changes.Earnings announcements often act as important catalysts for TUSK, as they provide updated info…</li>
+<li><a href="https://en.wikipedia.org/wiki/Demand_curve">Demand curve - Wikipedia</a></li>
+<li>Market demand curve: the relationship between the quantity of a product that all consumers in the market are willing to buy and its price. The market demand …</li>
+<li><a href="https://www.investopedia.com/terms/d/demand.asp">Understanding Demand: Key Determinants and the Demand Curve</a></li>
+<li>Apr 7, 2026 · Market demand is the total quantity demanded by all consumers in a market for a given good, and aggregate demand is the total demand for all go…</li>
+<li><a href="https://penpoin.com/market-demand/">Market Demand: Definition, How to Calculate, Determinants</a></li>
+<li>Jan 21, 2025 · What’s it: Market demand is the sum of individual demand in the market at a given price. Economists define demand as our willingness and abili…</li>
+<li><a href="https://www.axtekic.com/news/global-dram-and-nand-market-outlook-2025–2026:-ai-demand-sparks-new-wave-of-price-hikes.html">Global Dram And Nand Market Outlook 2025–2026: Ai Demand ...</a></li>
+<li>19 hours ago · Driven by AI adoption, DRAM and NAND flash markets face supply shortages. Micron, SanDisk, Samsung, and SK Hynix lead price hikes, boosting SS…</li>
+<li><a href="https://finance.yahoo.com/news/morning-bid-us-china-trade-103633856.html">Morning Bid: US-China trade war goes full throttle</a></li>
+<li>The escalating U.S.-China trade war has expanded and moved beyond tariffs, now hitting everything from chips to planes and pharma. * Shares fell in Asia...</li>
+<li><a href="https://ir.mammothenergy.com/news-events/press-releases/detail/141/mammoth-energy-services-inc-announces-sale-of-engineering">Mammoth Energy Services, Inc. Announces Sale of Engineering ...</a></li>
+<li>Dec 2, 2025 ... At closing, Mammoth Energy Partners LLC received total cash proceeds of $23.5 million. An additional $2.5 million was placed into escrow to f…</li>
+<li><a href="https://ir.mammothenergy.com/news-events/press-releases">Press Releases - Mammoth Energy Services, Inc.</a></li>
+<li>Mammoth Energy Services, Inc. Announces Fourth Quarter and Full Year 2025 Operational and Financial Results. Feb 05, 2026 4:30pm EST ...</li>
+<li><a href="https://ir.mammothenergy.com/news-events/press-releases/detail/12/mammoth-energy-announces-growth-of-engineering-services">Mammoth Energy Announces Growth of Engineering Services ...</a></li>
+<li>Feb 17, 2021 ... OKLAHOMA CITY, Feb. 17, 2021 (GLOBE NEWSWIRE) -- Mammoth Energy Services, Inc. (“Mammoth” or the “Company”) (NASDAQ:TUSK) today announced ...</li>
+</ul>
+<h3 id="search-warnings_1">Search warnings</h3>
+<ul>
+<li>news:Mammoth Energy Services, Inc. TUSK outlook OR catalyst OR commodity OR uranium OR rare earth OR vanadium: No results found.</li>
+<li>news:Mammoth Energy Services, Inc. TUSK backlog OR contract OR refinancing OR leverage: No results found.</li>
+</ul>
+<h2 id="sec-filing-s24">SEC filing [S24]</h2>
+<ul>
+<li>Extraction OK: True</li>
+<li>Item 1A chars: 2</li>
+<li>Item 7 chars: 2</li>
+<li>Meta: {'accession_number': '0001628280-26-015693', 'filing_date': '2026-03-06', 'source': 'edgartools', 'path': 'C:\DevWork\equity_research_agent\data\filings\TUSK_10k.txt'}</li>
+</ul>
+<h2 id="qualitative-analysis-local-llm">Qualitative analysis (local LLM)</h2>
+<h3 id="item-1a-risk-factors">Item 1A — Risk Factors</h3>
+<p>I'm happy to help! However, I don't see any text excerpted below. Please provide the filing excerpt, and I'll be happy to analyze it for you.</p>
+<p>Once I receive the excerpt, I'll return a concise Markdown summary with short bullet points and 1-2 short quotes highlighting:</p>
+<ul>
+<li>Shifts in management tone or competitive dynamics</li>
+<li>Explicit forward guidance (capex, growth, margins)</li>
+<li>Counterparty, regulatory, or legal risks</li>
+</ul>
+<p>Please provide the excerpt, and I'll get started!</p>
+<h3 id="item-7-mda">Item 7 — MD&amp;A</h3>
+<p>I'm happy to help! However, I need the excerpt text you'd like me to analyze. Please provide it, and I'll summarize the key points in Markdown format, focusing on evidence within the text.</p>
+<h2 id="research-loop-think-act">Research loop (think → act)</h2>
+<ol>
+<li><em>heuristic</em> — Coverage looks adequate for this pass; stopping iterative loop.</li>
+</ol>
+<h2 id="sources">Sources</h2>
+<ul>
+<li><strong>[S1]</strong> TUSK fundamentals (yfinance)</li>
+<li>Mammoth Energy Services, Inc.: price=2.685, rev=44292000.0, fcf=-89122000.0, shares=48170647.0, rev_cagr=-0.5035930506625281, ROIC=-0.1761222432972137, FCF yield=-0.689061785497…</li>
+<li><strong>[S2]</strong> TUSK EV/EBITDA valuation (multiples)</li>
+<li>Base implied price=168.1219062720914, multiple=8.0</li>
+<li><strong>[S3]</strong> TUSK DCF valuation (dcf)</li>
+<li>Base share price=2.482501947036513, bull=4.12956738773692, bear=2.1198753553474856</li>
+<li><strong>[S4]</strong> TUSK peer comps (peers)</li>
+<li>Peers: ; rows=1</li>
+<li><strong>[S5]</strong> TUSK earnings history (earnings)</li>
+<li>rows=12; next=2026-08-07</li>
+<li><strong>[S6]</strong> TUSK Forecast, Price Target &amp; Analyst Ratings | ChartMill.com (web) — https://www.chartmill.com/stock/quote/TUSK/analyst-ratings</li>
+<li>7 analysts have analysed TUSK and the average price target is 4.28 USD. This implies a price increase of 53% is expected in the next year compared to the ...</li>
+<li><strong>[S7]</strong> TUSK Stock Forecast &amp; Price Target | Mammoth Energy Services Inc ... (web) — https://valueinvesting.io/TUSK/estimates</li>
+<li>The average stock forecast for Mammoth Energy Services Inc (TUSK) is 4.28 USD. This price target corresponds to an upside of 36.87%. The range of stock ...</li>
+<li><strong>[S8]</strong> Mammoth Energy Services, Inc. (TUSK) - Yahoo Finance (web) — https://finance.yahoo.com/quote/TUSK/</li>
+<li>Find the latest Mammoth Energy Services, Inc. (TUSK) stock quote, history, news and other vital information to help you with your stock trading and ...</li>
+<li><strong>[S9]</strong> TUSK - Mammoth Energy Services Stock Forecast - StockInvest.us (web) — https://stockinvest.us/stock/TUSK</li>
+<li>Given the current short-term trend, the stock is expected to rise 9.16% during the next 3 months and, with a 90% probability hold a price between $2.85 and ...</li>
+<li><strong>[S10]</strong> Analyst Upgrades &amp; Downgrades - MarketWatch (web) — https://www.marketwatch.com/tools/upgrades-downgrades</li>
+<li>Real-time information on stock upgrades and downgrades by MarketWatch. View information on strong stocks to buy and weak stocks to sell.</li>
+<li><strong>[S11]</strong> Stock Screener: Best Stocks Consensus Opinion Analysts | MarketScreener (web) — https://m.marketscreener.com/tools/stock-screener/top-consensus/</li>
+<li>A surprise rate measures the difference between the consensus (average estimated value by the analysts covering the company) of an accounting item the day before publication and…</li>
+<li><strong>[S12]</strong> What Are Stock Upgrades &amp; Downgrades? | The Motley Fool (web) — https://www.fool.com/terms/u/upgrades-downgrades/</li>
+<li>What does a downgrade mean for stocks? When a stock analyst changes his or her opinion of a stock, making either an upgrade or a downgrade, it can sometimes lead to a large swin…</li>
+<li><strong>[S13]</strong> Consensus: AI for Research (web) — https://consensus.app/</li>
+<li>Consensus is an AI academic search engine for peer-reviewed literature—your research OS for finding, organizing, and analyzing science 10x faster.</li>
+<li><strong>[S14]</strong> Mammoth Energy Services, Inc. (TUSK) Stock Price, News, Quote &amp; History - Yahoo Finance (web_page) — https://finance.yahoo.com/quote/TUSK/</li>
+<li>Mammoth Energy Services, Inc. (TUSK) Stock Price, News, Quote &amp; History - Yahoo Finance Oops, something went wrong Skip to navigation Skip to main content Skip to right column W…</li>
+<li><strong>[S15]</strong> Mammoth Energy Services, Inc. (TUSK) Stock Price... - Yahoo Finance (web) — https://finance.yahoo.com/quote/TUSK/</li>
+<li>Find the latest Mammoth Energy Services, Inc. (TUSK) stock quote, history, news and other vital information to help you with your stock trading and investing.</li>
+<li><strong>[S16]</strong> Mammoth Energy Services, Inc. (TUSK) Stock Price... | Seeking Alpha (web) — https://seekingalpha.com/symbol/TUSK</li>
+<li>TUSK Mammoth Energy Services, Inc. Stock Price &amp; Overview.Mammoth Energy Services, Inc. operates as an energy services company in the United States, Canada, and internationally.</li>
+<li><strong>[S17]</strong> Mammoth Energy Services Share Price Today | NASDAQ: TUSK... (web) — https://in.investing.com/equities/mammoth-energy-services-inc</li>
+<li>View the real-time Mammoth Energy Services Inc (NASDAQ TUSK) share price. Assess historical data, charts, technical analysis and contribute in the forum.</li>
+<li><strong>[S18]</strong> TUSK Price Today: Mammoth Energy Services, Inc. Stock... | MEXC (web) — https://www.mexc.com/stocks/tusk</li>
+<li>Mammoth Energy Services, Inc. (TUSK) 7-Day Stock Price Changes.Earnings announcements often act as important catalysts for TUSK, as they provide updated information on revenue, …</li>
+<li><strong>[S19]</strong> Demand curve - Wikipedia (web) — https://en.wikipedia.org/wiki/Demand_curve</li>
+<li>Market demand curve: the relationship between the quantity of a product that all consumers in the market are willing to buy and its price. The market demand curve can be obtaine…</li>
+<li><strong>[S20]</strong> Understanding Demand: Key Determinants and the Demand Curve (web) — https://www.investopedia.com/terms/d/demand.asp</li>
+<li>Apr 7, 2026 · Market demand is the total quantity demanded by all consumers in a market for a given good, and aggregate demand is the total demand for all goods and services in …</li>
+<li><strong>[S21]</strong> Market Demand: Definition, How to Calculate, Determinants (web) — https://penpoin.com/market-demand/</li>
+<li>Jan 21, 2025 · What’s it: Market demand is the sum of individual demand in the market at a given price. Economists define demand as our willingness and ability as consumers to b…</li>
+<li><strong>[S22]</strong> Global Dram And Nand Market Outlook 2025–2026: Ai Demand ... (web) — https://www.axtekic.com/news/global-dram-and-nand-market-outlook-2025–2026:-ai-demand-sparks-new-wave-of-price-hikes.html</li>
+<li>19 hours ago · Driven by AI adoption, DRAM and NAND flash markets face supply shortages. Micron, SanDisk, Samsung, and SK Hynix lead price hikes, boosting SSD, server, and autom…</li>
+<li><strong>[S23]</strong> Mammoth Energy Services, Inc. (TUSK) Stock Price, News, Quote &amp; History - Yahoo Finance (web_page) — https://finance.yahoo.com/quote/TUSK/</li>
+<li>Mammoth Energy Services, Inc. (TUSK) Stock Price, News, Quote &amp; History - Yahoo Finance Oops, something went wrong Skip to navigation Skip to main content Skip to right column W…</li>
+<li><strong>[S24]</strong> TUSK 10-K (sec)</li>
+<li>Item 1A chars=2, Item 7 chars=2, ok=True, source=edgartools</li>
+<li><strong>[S25]</strong> TUSK 8-K 2026-06-26 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000162828026045745/tusk-20260625.htm</li>
+<li>8-K</li>
+<li><strong>[S26]</strong> TUSK 8-K 2026-05-15 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000162828026035328/tusk-20260513.htm</li>
+<li>8-K</li>
+<li><strong>[S27]</strong> TUSK 10-Q 2026-05-11 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000162828026033686/tusk-20260331.htm</li>
+<li>10-Q</li>
+<li><strong>[S28]</strong> TUSK 8-K 2026-05-11 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000162828026033142/tusk-20260511.htm</li>
+<li>8-K</li>
+<li><strong>[S29]</strong> TUSK 10-K 2026-03-06 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000162828026015693/tusk-20251231.htm</li>
+<li>10-K</li>
+<li><strong>[S30]</strong> TUSK 8-K 2026-03-06 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000162828026015465/tusk-20260306.htm</li>
+<li>8-K</li>
+<li><strong>[S31]</strong> TUSK 8-K 2025-12-04 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000167926825000046/tusk-20251202.htm</li>
+<li>8-K</li>
+<li><strong>[S32]</strong> TUSK 10-Q 2025-11-03 (sec) — https://www.sec.gov/Archives/edgar/data/1679268/000167926825000039/tusk-20250930.htm</li>
+<li>10-Q</li>
+<li><strong>[S33]</strong> Item 1A summary (nlp)</li>
+<li>
+<h3 id="item-1a-risk-factors-im-happy-to-help-however-i-dont-see-any-text-excerpted-below-please-provide-the-filing-excerpt-and-ill-be-happy-to-analyze-it-for-you-once-i">Item 1A — Risk Factors I'm happy to help! However, I don't see any text excerpted below. Please provide the filing excerpt, and I'll be happy to analyze it for you.  Once I …</h3>
+</li>
+<li><strong>[S34]</strong> Item 7 summary (nlp)</li>
+<li>
+<h3 id="item-7-mda-im-happy-to-help-however-i-need-the-excerpt-text-youd-like-me-to-analyze-please-provide-it-and-ill-summarize-the-key-points-in-markdown-format-focusing">Item 7 — MD&amp;A I'm happy to help! However, I need the excerpt text you'd like me to analyze. Please provide it, and I'll summarize the key points in Markdown format, focusing…</h3>
+</li>
+<li><strong>[S35]</strong> TUSK driver analysis (drivers)</li>
+<li>ok=True; drivers=7</li>
+<li><strong>[S36]</strong> TUSK memo sections (memo)</li>
+<li>mode=rules; proxies=1</li>
+</ul>
+<h2 id="self-critique">Self-critique</h2>
+<p><em>Automated review (heuristic).</em></p>
+<h3 id="strengths">Strengths</h3>
+<ul>
+<li>Combines local fundamentals, optional DCF scenarios, and cited sources where available.</li>
+<li>Keeps a non-advisory framing for local research drafts.</li>
+</ul>
+<h3 id="issues-gaps">Issues &amp; gaps</h3>
+<ul>
+<li>No major structural issues flagged by heuristics.</li>
+</ul>
+<h3 id="caution-for-readers">Caution for readers</h3>
+<ul>
+<li>Treat scenario prices as sensitivity output, not a forecast.</li>
+<li>Re-check primary filings and fresh market data before any decision.</li>
+</ul>
+    </article>
+  </main>
+
+  <footer class="site-foot">
+    <p>Static viewer of synced research packs · Not investment advice</p>
+  </footer>
+</body>
+</html>

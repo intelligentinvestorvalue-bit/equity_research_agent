@@ -86,6 +86,23 @@ python -m src.sync_cli status
 
 API helpers: `POST /api/sync/import`, `POST /api/sync/export`.
 
+## GitHub Pages (read-only reports)
+
+Styled static viewer of completed `data/sync/` packs — open from any browser, no laptop tunnel.
+
+```bash
+pip install markdown
+python scripts/build_pages_site.py   # writes docs/
+```
+
+Enable once: GitHub **Settings → Pages → Deploy from branch → `main` / `/docs`**.
+
+Public URL:
+
+`https://intelligentinvestorvalue-bit.github.io/equity_research_agent/`
+
+Details: [GITHUB_PAGES.md](./GITHUB_PAGES.md).
+
 ## Fallbacks (built in)
 
 - Ollama down → keyword/rule-based text summary
