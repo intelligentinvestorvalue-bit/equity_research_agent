@@ -10,6 +10,8 @@ data/*.db-*
 data/*.pid
 data/tunnel*
 data/ensure_online.log
+data/publish_sync.log
+data/publish_requested
 data/app.*.log
 # Keep shared research packs (cloud ↔ local) under data/sync/
 !data/sync/

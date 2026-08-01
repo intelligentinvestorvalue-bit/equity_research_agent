@@ -102,7 +102,12 @@ def _fail_orphaned_jobs() -> int:
 
 def _export_job_sync(job_id: str) -> None:
     try:
-        export_job_id(job_store, job_id)
+        path = export_job_id(job_store, job_id)
+        if path is not None:
+            # Debounced: Task Scheduler scripts/publish_sync.ps1 pushes to GitHub.
+            from src.publish_queue import request_publish
+
+            request_publish(f"job:{job_id[:8]}")
     except Exception:  # noqa: BLE001
         logger.exception("Job sync export failed for %s", job_id)
 

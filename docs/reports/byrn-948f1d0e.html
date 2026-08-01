@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>BYRN report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topnav">
+    <a class="topnav-brand" href="../index.html">Equity Research</a>
+    <nav class="topnav-links" aria-label="Site">
+      <a href="../index.html" class="active">Reports</a>
+    </nav>
+  </header>
+  
+  <main class="wrap wide">
+    <header class="row">
+      <div>
+        <p class="brand">BYRN report</p>
+        <p class="sub">deep · all · 2026-07-24 17:21 UTC</p>
+        
+      </div>
+      <div class="actions">
+        <a class="btn secondary" href="../index.html">All reports</a>
+      </div>
+    </header>
+    <section class="chart-gallery" aria-label="Charts">
+        <figure class="chart-card">
+          <figcaption>BYRN deep revenue fcf</figcaption>
+          <img src="../charts/BYRN_deep_revenue_fcf.png" alt="BYRN_deep_revenue_fcf.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>BYRN deep dcf scenarios</figcaption>
+          <img src="../charts/BYRN_deep_dcf_scenarios.png" alt="BYRN_deep_dcf_scenarios.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>BYRN deep base fcf path</figcaption>
+          <img src="../charts/BYRN_deep_base_fcf_path.png" alt="BYRN_deep_base_fcf_path.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>BYRN income revenue fcf</figcaption>
+          <img src="../charts/BYRN_income_revenue_fcf.png" alt="BYRN_income_revenue_fcf.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>BYRN fast revenue fcf</figcaption>
+          <img src="../charts/BYRN_fast_revenue_fcf.png" alt="BYRN_fast_revenue_fcf.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>BYRN fast dcf scenarios</figcaption>
+          <img src="../charts/BYRN_fast_dcf_scenarios.png" alt="BYRN_fast_dcf_scenarios.png" loading="lazy" />
+        </figure>
+        <figure class="chart-card">
+          <figcaption>BYRN fast base fcf path</figcaption>
+          <img src="../charts/BYRN_fast_base_fcf_path.png" alt="BYRN_fast_base_fcf_path.png" loading="lazy" />
+        </figure></section>
+    <article class="report">
+      <h1 id="byrn-full-research-pack">BYRN — Full research pack</h1>
+<blockquote>
+<p>Not investment advice. Local research draft only.</p>
+</blockquote>
+<p><strong>Templates:</strong> memo, valuation, deep, income, fast<br />
+<strong>Generated:</strong> 2026-07-24T16:28:54.103085+00:00</p>
+<hr />
+<h1 id="template-institutional-deep-dive-memo-memo">Template: Institutional deep dive (memo) (<code>memo</code>)</h1>
+<h1 id="byrn-planned-research-report">BYRN — Planned Research Report</h1>
+<blockquote>
+<p>Not investment advice. Local research draft only.</p>
+</blockquote>
+<p><strong>Goal:</strong> Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers<br />
+<strong>Mode:</strong> deep<br />
+<strong>Template:</strong> memo<br />
+<strong>Planner:</strong> template</p>
+<h2 id="plan-executed">Plan executed</h2>
+<ul>
+<li><strong>(1) Snapshot, KPIs &amp; capital structure</strong> (<code>fundamentals</code>): get_fundamentals</li>
+<li>Multi-year KPI table, leverage, EV/EBITDA snapshot. Focus: Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers</li>
+<li><strong>(2) EV/EBITDA priced-in scenarios</strong> (<code>multiples</code>): run_ev_ebitda</li>
+<li>Bear/base/bull EBITDA × multiple → implied equity value</li>
+<li><strong>(3) DCF cross-check</strong> (<code>valuation</code>): run_dcf</li>
+<li>FCF DCF as second valuation lens vs multiples</li>
+<li><strong>(4) Peer &amp; factor comps</strong> (<code>peers</code>): get_peer_comps</li>
+<li>Heuristic sector peers: returns, EV/EBITDA, leverage, volatility</li>
+<li><strong>(5) Earnings &amp; surprise history</strong> (<code>earnings</code>): get_earnings</li>
+<li>EPS estimate vs actual vs 1-day move when available</li>
+<li><strong>(6a) Street / narrative web</strong> (<code>web_analysts</code>): search_web</li>
+<li>Analyst targets, thesis debates, guidance headlines</li>
+<li><strong>(6b) Drivers &amp; proxies</strong> (<code>web_drivers</code>): search_web</li>
+<li>Operating KPIs, contracts, refinancing, sector drivers</li>
+<li><strong>(7a) SEC 10-K intake</strong> (<code>sec_fetch</code>): fetch_10k</li>
+<li>Latest 10-K for business, risks, and MD&amp;A</li>
+<li><strong>(7b) Recent 10-Q / 8-K headlines</strong> (<code>recent_filings</code>): fetch_recent_filings</li>
+<li>Catalyst calendar inputs — meta only, not full parse</li>
+<li><strong>(7c) Business overview (Item 1)</strong> (<code>business</code>): summarize_item_1</li>
+<li>Company setup &amp; business model from 10-K Item 1</li>
+<li><strong>(7d) Risk factors (Item 1A)</strong> (<code>risks</code>): summarize_item_1a</li>
+<li>Falsification inputs from filing risks</li>
+<li><strong>(7e) MD&amp;A (Item 7)</strong> (<code>mda</code>): summarize_item_7</li>
+<li>Guidance cues and operating commentary</li>
+<li><strong>(7f) Headwind / tailwind price ranges</strong> (<code>scenario_ranges</code>): build_scenario_ranges</li>
+<li>Medium-term (18–36m) bear/base/bull price bands from catalysts &amp; risks — complements DCF, not a substitute</li>
+<li><strong>(8) Quarterly driver correlations</strong> (<code>drivers</code>): analyze_drivers</li>
+<li>Suggestive FCF/revenue/debt vs return correlations (small-n caveats)</li>
+<li><strong>(9) Thesis memo sections</strong> (<code>memo</code>): draft_memo_sections</li>
+<li>Exec summary, variant perception, catalysts, falsifiers, limitations</li>
+</ul>
+<h2 id="fundamentals-s1">Fundamentals [S1]</h2>
+<p><strong>Fundamentals error:</strong> Failed to perform, curl: (28) Connection timed out after 30008 milliseconds. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</p>
+<h2 id="dcf-valuation-base-bull-bear-s3">DCF valuation (base / bull / bear) [S3]</h2>
+<blockquote>
+<p>Simplified revenue-&gt;FCF DCF. Not investment advice; assumptions are editable heuristics.</p>
+</blockquote>
+<ul>
+<li><strong>Error:</strong> Cannot run DCF without positive base revenue.</li>
+<li><strong>Error:</strong> Cannot run DCF without shares outstanding.</li>
+</ul>
+<h2 id="valuation-evebitda-scenarios-s2">Valuation — EV/EBITDA scenarios [S2]</h2>
+<blockquote>
+<p>Priced-in model: implied price = (EBITDA × EV/EBITDA − net debt) ÷ shares. Not a forecast.</p>
+</blockquote>
+<ul>
+<li>Net debt used: $0</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th style="text-align: right;">EBITDA</th>
+<th style="text-align: right;">EV/EBITDA</th>
+<th style="text-align: right;">Implied EV</th>
+<th style="text-align: right;">Equity value</th>
+<th style="text-align: right;">Implied price</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td style="text-align: right;">$700.00M</td>
+<td style="text-align: right;">6.0x</td>
+<td style="text-align: right;">$4.20B</td>
+<td style="text-align: right;">$4.20B</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>base</td>
+<td style="text-align: right;">$1.00B</td>
+<td style="text-align: right;">8.0x</td>
+<td style="text-align: right;">$8.00B</td>
+<td style="text-align: right;">$8.00B</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>bull</td>
+<td style="text-align: right;">$1.20B</td>
+<td style="text-align: right;">10.0x</td>
+<td style="text-align: right;">$12.00B</td>
+<td style="text-align: right;">$12.00B</td>
+<td style="text-align: right;">—</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>EBITDA missing or non-positive; scenarios use placeholder $1B EBITDA — edit before relying on prices.</li>
+<li>No current EV/EBITDA; defaulted base multiple to 8.0x.</li>
+<li><strong>Error:</strong> Missing shares outstanding</li>
+</ul>
+<h2 id="scenario-price-ranges-headwinds-tailwinds-s39">Scenario price ranges (headwinds &amp; tailwinds) [S39]</h2>
+<blockquote>
+<p>Medium-term (18–36 months (medium / medium-long term)) driver → EV/EBITDA bridge. Distinct from the FCF DCF path. Not investment advice.</p>
+</blockquote>
+<ul>
+<li>Anchor multiple: 8.0x (driver_ev_ebitda_bridge)</li>
+<li>Anchor EBITDA: $1.00B</li>
+<li>Driver extraction: <code>rules</code></li>
+</ul>
+<h3 id="headwinds-bear-case-fuel">Headwinds (bear-case fuel)</h3>
+<ul>
+<li><strong>Balance-sheet / refinancing pressure</strong> — sector=None industry=None revenue=None ebitda=None fcf=None net_debt=None nd_ebitda=None target=None rec=None <em>(source: fundamentals)</em></li>
+<li><strong>Competitive / pricing pressure</strong> — Byrna Technologies Inc. (BYRN) Interactive Stock Chart - Yahoo Finance Interactive Chart for Byrna Technologies Inc. (BYRN), analyze all the data with a huge range of indicators.Cr <em>(source: web)</em></li>
+<li><strong>Regulatory / legal risk</strong> — Market Demand: Definition, How to Calculate, Determinants What’s it: Market demand is the sum of individual demand in the market at a given price. Economists define demand as our w <em>(source: web)</em></li>
+</ul>
+<h3 id="tailwinds-bull-case-fuel">Tailwinds (bull-case fuel)</h3>
+<ul>
+<li><strong>Growth / execution upside</strong> — Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN | Byrna Technologies, Inc. Common Institutional ...BYRN - B <em>(source: web)</em></li>
+<li><strong>Product / pricing power</strong> — Byrna Technologies (BYRN) Stock Forecast &amp; Analyst Price Targets Stock forecasts and analyst price target predictions for Byrna Technologies Inc. (BYRN) stock, with detailed revenu <em>(source: web)</em></li>
+<li><strong>Capital returns / FCF inflection</strong> — Byrna Technologies (Nasdaq:BYRN) - Stock Analysis - Simply Wall St Research Byrna Technologies' (Nasdaq:BYRN) fundamentals, past performance, valuation, dividends and more. <em>(source: web)</em></li>
+<li><strong>Contract / backlog wins</strong> — Byrna Technologies Has One Critical Flaw: Recurring Revenue May 11, 2026 ... Byrna Technologies (BYRN) has fallen 70% YTD and now ... contract revenue from law enforcement can make <em>(source: web)</em></li>
+</ul>
+<h3 id="price-ranges-by-case">Price ranges by case</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Case</th>
+<th style="text-align: right;">Prob.</th>
+<th style="text-align: right;">Metric vs TTM</th>
+<th style="text-align: right;">Multiple</th>
+<th style="text-align: right;">Price low</th>
+<th style="text-align: right;">Mid</th>
+<th style="text-align: right;">High</th>
+<th style="text-align: right;">Upside vs spot</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td style="text-align: right;">0.24</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">Missing shares outstanding</td>
+</tr>
+<tr>
+<td>base</td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">Missing shares outstanding</td>
+</tr>
+<tr>
+<td>bull</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">Missing shares outstanding</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="bear-headwinds-dominate">Bear — headwinds dominate</h4>
+<p>Headwinds bite: weaker operating trajectory and multiple compression. Equity duration shrinks if cash generation fails to offset leverage / competitive pressure.</p>
+<ul>
+<li>Driver: <strong>Balance-sheet / refinancing pressure</strong> — sector=None industry=None revenue=None ebitda=None fcf=None net_debt=None nd_ebitda=None target=None rec=None</li>
+<li>Driver: <strong>Competitive / pricing pressure</strong> — Byrna Technologies Inc. (BYRN) Interactive Stock Chart - Yahoo Finance Interactive Chart for Byrna Technologies Inc. (BYRN), analyze all the data with a huge ra</li>
+<li>Driver: <strong>Regulatory / legal risk</strong> — Market Demand: Definition, How to Calculate, Determinants What’s it: Market demand is the sum of individual demand in the market at a given price. Economists de</li>
+</ul>
+<h4 id="base-mixed-execution">Base — mixed execution</h4>
+<p>Balanced path: some tailwinds offset headwinds. Operating scale roughly holds with modest repair/normalization; valuation stays near the current EV/EBITDA anchor.</p>
+<ul>
+<li>Driver: <strong>Growth / execution upside</strong> — Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN | Byrna Technologies, Inc. Common Insti</li>
+<li>Driver: <strong>Product / pricing power</strong> — Byrna Technologies (BYRN) Stock Forecast &amp; Analyst Price Targets Stock forecasts and analyst price target predictions for Byrna Technologies Inc. (BYRN) stock, </li>
+<li>Driver: <strong>Balance-sheet / refinancing pressure</strong> — sector=None industry=None revenue=None ebitda=None fcf=None net_debt=None nd_ebitda=None target=None rec=None</li>
+<li>Driver: <strong>Competitive / pricing pressure</strong> — Byrna Technologies Inc. (BYRN) Interactive Stock Chart - Yahoo Finance Interactive Chart for Byrna Technologies Inc. (BYRN), analyze all the data with a huge ra</li>
+</ul>
+<h4 id="bull-tailwinds-dominate">Bull — tailwinds dominate</h4>
+<p>Tailwinds compound: operating improvement plus a re-rating toward peer or recovery multiples as balance-sheet and growth narratives improve.</p>
+<ul>
+<li>Driver: <strong>Growth / execution upside</strong> — Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN | Byrna Technologies, Inc. Common Insti</li>
+<li>Driver: <strong>Product / pricing power</strong> — Byrna Technologies (BYRN) Stock Forecast &amp; Analyst Price Targets Stock forecasts and analyst price target predictions for Byrna Technologies Inc. (BYRN) stock, </li>
+<li>Driver: <strong>Capital returns / FCF inflection</strong> — Byrna Technologies (Nasdaq:BYRN) - Stock Analysis - Simply Wall St Research Byrna Technologies' (Nasdaq:BYRN) fundamentals, past performance, valuation, dividen</li>
+<li>Driver: <strong>Contract / backlog wins</strong> — Byrna Technologies Has One Critical Flaw: Recurring Revenue May 11, 2026 ... Byrna Technologies (BYRN) has fallen 70% YTD and now ... contract revenue from law </li>
+</ul>
+<h3 id="method-notes">Method notes</h3>
+<ul>
+<li>Item 1A risks weighted toward headwinds.</li>
+<li>Current ev_ebitda multiple missing; anchored at 8.0x.</li>
+<li>Mapping follows Gemini/Perplexity-style scenario memos: qualitative drivers → operating metric &amp; multiple paths → share-price ranges over a medium-term horizon.</li>
+</ul>
+<h3 id="errors">Errors</h3>
+<ul>
+<li>Missing shares outstanding</li>
+</ul>
+<h2 id="peer-factor-comps">Peer &amp; factor comps</h2>
+<ul>
+<li>Sector / industry: — / —</li>
+<li>Peers: —</li>
+</ul>
+<p><em>No peer data available.</em></p>
+<h2 id="earnings-guidance-revision-catalysts">Earnings, guidance &amp; revision catalysts</h2>
+<p><em>No earnings surprise history available from yfinance.</em></p>
+<ul>
+<li>Failed to perform, curl: (6) Could not resolve host: finance.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</li>
+</ul>
+<h2 id="recent-sec-filings-10-q-8-k">Recent SEC filings (10-Q / 8-K)</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Form</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-07-09</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926023101/byrn20260708_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-07-09</td>
+<td>10-Q</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926023100/byrn20260531_10q.htm">FORM 10-Q</a></td>
+</tr>
+<tr>
+<td>2026-07-08</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926023029/byrn20260707_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-06-18</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926021142/byrn20260618c_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-06-15</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926020580/byrn20260612_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-04-09</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926011821/byrn20260408c_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-04-09</td>
+<td>10-Q</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926011820/byrn20260228_10q.htm">FORM 10-Q</a></td>
+</tr>
+<tr>
+<td>2026-04-08</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926011756/byrn20260408_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-03-23</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926009296/byrn20260320_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-03-19</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926008945/byrn20260318_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-03-09</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926007268/byrn20260306_8k.htm">FORM 8-K</a></td>
+</tr>
+<tr>
+<td>2026-03-03</td>
+<td>8-K</td>
+<td><a href="https://www.sec.gov/Archives/edgar/data/1354866/000143774926006482/byrn20260302_8k.htm">FORM 8-K</a></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Headlines/meta only — documents not fully parsed in this pass.</em></p>
+<h2 id="key-driver-analysis-quarterly">Key driver analysis (quarterly)</h2>
+<p>Pearson / Spearman correlations of quarterly stock returns with fundamentals.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Driver</th>
+<th style="text-align: right;">Pearson r</th>
+<th style="text-align: right;">p</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">Spearman ρ</th>
+<th style="text-align: right;">p</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Revenue growth (YoY)</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>Free cash flow</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>FCF margin</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>Operating cash flow</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>Long-term debt level</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>EBITDA</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>Capex (abs)</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>Correlations describe association, not causation.</li>
+<li>Small samples (especially regime splits) are directional only.</li>
+<li>Regime split at 2023-12-31 (sample midpoint); directional only.</li>
+<li>Insufficient quarterly overlap for driver correlations.</li>
+</ul>
+<h2 id="executive-summary">Executive summary</h2>
+<p>BYRN (BYRN) trades near None with market cap — and EV —. Net debt is — (ND/EBITDA —). Latest revenue —, EBITDA —, FCF —.</p>
+<p><strong>Goal focus:</strong> Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers.</p>
+<p>What matters most (framework): balance-sheet trajectory, cash generation vs leverage, and whether market expectations (sparse free-data targets) already price execution risk.</p>
+<p>EV/EBITDA implied prices — bear — / base — / bull —.</p>
+<h2 id="company-setup-business-model">Company setup &amp; business model</h2>
+<p>No Item 1 Business text extracted.</p>
+<p><em>Source: latest 10-K Item 1 (Business), summarized locally.</em></p>
+<h2 id="variant-perception">Variant perception</h2>
+<ul>
+<li><strong>Consensus frame (sparse):</strong> recommendation=—, mean target=—.</li>
+<li><strong>Bear:</strong> leverage and execution risk dominate; cash generation fails to cover refinancing / reinvestment needs; equity remains constrained by net debt.</li>
+<li><strong>Bull:</strong> cash-flow and strategic optionality re-rate the equity as leverage falls and growth/mix improves.</li>
+<li><strong>Middle:</strong> returns may track free-cash-flow more than headline revenue — verify with driver analysis tab.</li>
+</ul>
+<h2 id="catalysts-monitoring">Catalysts &amp; monitoring</h2>
+<ul>
+<li>Next earnings window (calendar): unconfirmed</li>
+<li>Peer tape to watch: n/a</li>
+<li>Monitor: FCF vs net debt, leverage (ND/EBITDA), refinancing headlines, and material 8-K strategy updates.</li>
+<li>Recent filing: 8-K on 2026-07-09 — FORM 8-K</li>
+<li>Recent filing: 10-Q on 2026-07-09 — FORM 10-Q</li>
+<li>Recent filing: 8-K on 2026-07-08 — FORM 8-K</li>
+<li>Recent filing: 8-K on 2026-06-18 — FORM 8-K</li>
+<li>Recent filing: 8-K on 2026-06-15 — FORM 8-K</li>
+</ul>
+<h2 id="falsification-triggers">Falsification triggers</h2>
+<ul>
+<li>Leverage (net debt/EBITDA) re-rises sustainably above prior repaired levels without offsetting EBITDA growth.</li>
+<li>Underlying FCF (ex one-times, when identifiable) trends below levels needed to service debt and fund required capex.</li>
+<li>Strategic thesis KPIs (from filings/web) stall for consecutive reporting periods.</li>
+<li>Distressed refinancing, covenant stress, or major customer/contract loss headlines.</li>
+</ul>
+<h2 id="source-quality-limitations">Source quality &amp; limitations</h2>
+<ul>
+<li>Quantitative data from yfinance (statements, prices, sparse targets); qualitative from SEC + public web.</li>
+<li>Consensus revenue/EBITDA estimates and adjusted metrics are often unavailable — do not treat missing fields as zero.</li>
+<li>Peer sets are heuristic by sector/industry keyword maps.</li>
+<li>This is a local research draft only — not investment advice and not a rating.</li>
+</ul>
+<h2 id="early-proxy-tracker">Early proxy tracker</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Proxy</th>
+<th>Why it matters</th>
+<th>Current signal</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Guidance / outlook</td>
+<td>Forward cash/earnings path</td>
+<td>Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN / Byrna Technologies, Inc. Common Institutional ...BYRN - B</td>
+<td>Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN</td>
+</tr>
+<tr>
+<td>Contract / backlog</td>
+<td>Demand durability</td>
+<td>Byrna Technologies Inc Customers by Division and Industry - CSIMarket Byrna Technologies Inc customers and markets, results by customer and performance relative to BYRN, by company</td>
+<td>Byrna Technologies Inc Customers by Division and Industry - CSIMarket</td>
+</tr>
+<tr>
+<td>Leverage / refinancing</td>
+<td>Balance-sheet repair</td>
+<td>Byrna Technologies Reports Fiscal First Quarter 2026 Results Apr 9, 2026 ... (“Byrna” or the “Company”) (Nasdaq: BYRN), a personal defense ... leverage proprietary data and insight</td>
+<td>Byrna Technologies Reports Fiscal First Quarter 2026 Results</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Proxies are heuristic extractions from public web/SEC context; verify against primary filings.</em></p>
+<h2 id="catalyst-calendar">Catalyst calendar</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Window</th>
+<th>Catalyst</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-07-09</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-07-09</td>
+<td>10-Q</td>
+<td>FORM 10-Q</td>
+</tr>
+<tr>
+<td>2026-07-08</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-06-18</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-06-15</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-04-09</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-04-09</td>
+<td>10-Q</td>
+<td>FORM 10-Q</td>
+</tr>
+<tr>
+<td>2026-04-08</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-03-23</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-03-19</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-03-09</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>2026-03-03</td>
+<td>8-K</td>
+<td>FORM 8-K</td>
+</tr>
+<tr>
+<td>Oct 22, 2025</td>
+<td>Web event</td>
+<td>Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN</td>
+</tr>
+<tr>
+<td>Jul 22, 2025</td>
+<td>Web event</td>
+<td>Byrna Technologies' Recent Surge in Investor Interest: A Deep ...</td>
+</tr>
+<tr>
+<td>Jul 11, 2025</td>
+<td>Web event</td>
+<td>BYRN Q2 Deep Dive: Market Skepticism Amid Channel Expansion ...</td>
+</tr>
+<tr>
+<td>Jul 11, 2025</td>
+<td>Web event</td>
+<td>BYRN Q2 Deep Dive: Market Skepticism Amid Channel Expansion ...</td>
+</tr>
+<tr>
+<td>March 9, 2026</td>
+<td>Web event</td>
+<td>Byrna Technologies Stock Guidance</td>
+</tr>
+<tr>
+<td>Jul 8, 2026</td>
+<td>Web event</td>
+<td>Investor Relations :: Byrna Technologies Inc. (BYRN)</td>
+</tr>
+<tr>
+<td>Oct 22, 2025</td>
+<td>Web event</td>
+<td>Byrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...</td>
+</tr>
+<tr>
+<td>Jul 9, 2026</td>
+<td>Web event</td>
+<td>Byrna (NASDAQ:BYRN) Misses Q2 CY2026 Sales Expectations ...</td>
+</tr>
+<tr>
+<td>Apr 9, 2026</td>
+<td>Web event</td>
+<td>Byrna Technologies Reports Fiscal First Quarter 2026 Results</td>
+</tr>
+<tr>
+<td>May 11, 2026</td>
+<td>Web event</td>
+<td>Byrna Technologies Has One Critical Flaw: Recurring Revenue</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="web-research-web_analysts">Web research — web_analysts</h2>
+<ul>
+<li>Queries: BYRN analyst price target, BYRN stock rating OR consensus OR upgrade OR downgrade, BYRN Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers analyst, BYRN guidance OR investor day OR catalyst</li>
+<li>Unique hits: 22</li>
+<li>Pages fetched: 3/3</li>
+</ul>
+<h3 id="web-synthesis-web_analysts-rule-based-fallback-ollama-unavailable">Web synthesis — web_analysts (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> uncertainty, guidance, revenue, margin, customer, product, service, market</p>
+<ul>
+<li>[HIT] Byrna Technologies (BYRN) Stock Forecast &amp; Price Target | www.marketbeat.com | https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/ BYRN's current price target is $7.88.</li>
+<li>Learn why top analysts are making this stock forecast for Byrna Technologies at MarketBeat.</li>
+<li>(BYRN) stock, with detailed revenue and earnings estimates.</li>
+<li>| Asianet Newsable on MSN | https://www.msn.com/en-in/money/markets/why-did-stla-mat-byrn-stocks-tumble-to-52-week-lows-today/ar-AA27BZfD?ocid=BingNewsVerp Stellantis, Mattel, and Byrna Technologies tumbled to fresh lows on Thursday amid regional weaknesses, poor outlook, and Wall Street caution.</li>
+<li>[HIT] Analysts Have Mixed Views on Glacier Bancorp (GBCI) | Insider Monkey · via Yahoo Finance | https://finance.yahoo.com/markets/stocks/articles/analysts-mixed-views-glacier-bancorp-201806470.html Glacier Bancorp, Inc.</li>
+<li>[HIT] What To Expect From Byrna Technologies Inc (BYRN) Q2 2026 Earnings | Yahoo Finance | https://finance.yahoo.com/markets/stocks/articles/expect-byrna-technologies-inc-byrn-131713208.html At Yahoo Finance, you get free stock quotes, up-to-date news, portfolio management resources, international market data, social interaction and mortgage rates that help you manage your financial life.</li>
+<li>[HIT] Byrna Technologies (BYRN) Stock Price, News &amp; Analysis | www.marketbeat.com | https://www.marketbeat.com/stocks/NASDAQ/BYRN/ Should You Buy or Sell Byrna Technologies Stock?</li>
+<li>Get The Latest BYRN Stock Analysis, Price Target, Earnings Estimates, Headlines, and Short Interest at MarketBeat.</li>
+</ul>
+<h3 id="sources-found">Sources found</h3>
+<ul>
+<li><a href="https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/">Byrna Technologies (BYRN) Stock Forecast &amp; Price Target</a></li>
+<li>BYRN's current price target is $7.88. Learn why top analysts are making this stock forecast for Byrna Technologies at MarketBeat.</li>
+<li><a href="https://www.zacks.com/stock/research/byrn/price-target-stock-forecast">What is the current Price Target and Forecast for Byrna Technologies (BYRN)</a></li>
+<li>Price Target Based on short-term price targets offered by four analysts, the average price target for Byrna Technologies Inc. comes to $7.63. The forecasts r…</li>
+<li><a href="https://stockanalysis.com/stocks/byrn/forecast/">Byrna Technologies (BYRN) Stock Forecast &amp; Analyst Price Targets</a></li>
+<li>Stock forecasts and analyst price target predictions for Byrna Technologies Inc. (BYRN) stock, with detailed revenue and earnings estimates.</li>
+<li><a href="https://finance.yahoo.com/quote/BYRN/analyst-insights/">Byrna Technologies Inc. (BYRN) Analyst Insights, Price Targets ...</a></li>
+<li>Yahoo Finance provides the latest analyst insights, price targets, and recommendations on Byrna Technologies Inc. (BYRN) to help inform your investment strat…</li>
+<li><a href="https://www.msn.com/en-in/money/markets/why-did-stla-mat-byrn-stocks-tumble-to-52-week-lows-today/ar-AA27BZfD?ocid=BingNewsVerp">Why did STLA, MAT, BYRN stocks tumble to 52-week lows today?</a></li>
+<li>Stellantis, Mattel, and Byrna Technologies tumbled to fresh lows on Thursday amid regional weaknesses, poor outlook, and Wall Street caution.</li>
+<li><a href="https://finance.yahoo.com/news/needham-reiterates-buy-monday-com-225907775.html">Needham Reiterates Buy on monday.com (MNDY), Sets $250 Price Targe</a></li>
+<li>monday.com Ltd. (NASDAQ:MNDY) is one of the AI Stocks Analysts Are Watching Closely. On August 18,...</li>
+<li><a href="https://finance.yahoo.com/markets/stocks/articles/analysts-mixed-views-glacier-bancorp-201806470.html">Analysts Have Mixed Views on Glacier Bancorp (GBCI)</a></li>
+<li>Glacier Bancorp, Inc. (NYSE:GBCI) is one of the 11 Best American Bank Stocks to Buy According to Wall Street Analysts. On February 11, Piper Sandler...</li>
+<li><a href="https://finance.yahoo.com/markets/stocks/articles/expect-byrna-technologies-inc-byrn-131713208.html">What To Expect From Byrna Technologies Inc (BYRN) Q2 2026 Earnings</a></li>
+<li>At Yahoo Finance, you get free stock quotes, up-to-date news, portfolio management resources, international market data, social interaction and mortgage rate…</li>
+<li><a href="https://finance.yahoo.com/quote/BYRN/">Byrna Technologies Inc. (BYRN) Stock Price, News, Quote &amp; History ...</a></li>
+<li>Find the latest Byrna Technologies Inc. (BYRN) stock quote, history, news and other vital information to help you with your stock trading and investing.</li>
+<li><a href="https://www.marketbeat.com/stocks/NASDAQ/BYRN/">Byrna Technologies (BYRN) Stock Price, News &amp; Analysis</a></li>
+<li>Should You Buy or Sell Byrna Technologies Stock? Get The Latest BYRN Stock Analysis, Price Target, Earnings Estimates, Headlines, and Short Interest at Marke…</li>
+<li><a href="https://www.marketwatch.com/investing/stock/byrn">BYRN Stock Price | Byrna Technologies Inc. Stock Quote (U.S.: Nasdaq ...</a></li>
+<li>BYRN | Complete Byrna Technologies Inc. stock news by MarketWatch. View real-time stock prices and stock quotes for a full financial overview.</li>
+<li><a href="https://finance.yahoo.com/markets/stocks/articles/stocks-under-pressure-optimism-fades-140947179.html">Stocks Under Some Pressure as Optimism Fades Over US-Iran Ceasefire</a></li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) today is down -0.04%, the Dow Jones Industrial Average ($DOWI )...</li>
+</ul>
+<h3 id="search-warnings">Search warnings</h3>
+<ul>
+<li>news:BYRN Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers analyst: No results found.</li>
+<li>news:BYRN guidance OR investor day OR catalyst: No results found.</li>
+</ul>
+<h2 id="web-research-web_drivers">Web research — web_drivers</h2>
+<ul>
+<li>Queries: BYRN Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers, BYRN BYRN outlook OR catalyst OR commodity OR uranium OR rare earth OR vanadium, BYRN sector drivers OR market demand, BYRN BYRN backlog OR contract OR refinancing OR leverage</li>
+<li>Unique hits: 16</li>
+<li>Pages fetched: 2/3</li>
+</ul>
+<h3 id="web-synthesis-web_drivers-rule-based-fallback-ollama-unavailable">Web synthesis — web_drivers (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> revenue, customer, product, service, market</p>
+<ul>
+<li>| www.marketbeat.com | https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/ BYRN's current price target is $7.88.</li>
+<li>Learn why top analysts are making this stock forecast for Byrna Technologies at MarketBeat.</li>
+<li>(BYRN) is a leading provider of less-lethal self-defense technology with a diverse product portfolio spanning handheld devices, launchers, projectiles, and aerosols.</li>
+<li>(NASDAQ: BYRN) designs, develops and markets non-lethal personal security devices and accessories intended to provide an alternative to traditional firearms.</li>
+<li>(BYRN) is a leading provider of less-lethal self-defense technology with a diverse product portfolio spanning handheld devices, launchers, projectiles, and aerosols.</li>
+<li>The company reported a Q2 2026 loss of $0.44 per share, missing estimates, with revenue declining 42.5...</li>
+<li>[HIT] FinancialContent - Why Byrna (BYRN) Shares Are Sliding Today | markets.financialcontent.com | https://markets.financialcontent.com/stocks/article/stockstory-2026-7-20-why-byrna-byrn-shares-are-sliding-today Shares of non-lethal weapons company Byrna (NASDAQ: BYRN) fell 4.1% in the afternoon session after the company announced the appointment of James White as Senior Vice President of Retail and Channel Growth.</li>
+<li>
+<ul>
+<li>Webull | www.webull.com | https://www.webull.com/quote/nasdaq-byrn Webull offers BYRN Ent Holdg (BYRN) historical stock prices, in-depth market analysis, NASDAQ: BYRN real-time stock quote data, in-depth charts, free BYRN options chain data, and a fully built financial calendar to help you invest smart.</li>
+</ul>
+</li>
+</ul>
+<h3 id="sources-found_1">Sources found</h3>
+<ul>
+<li><a href="https://ir.byrna.com/">Investor Relations :: Byrna Technologies Inc. (BYRN)</a></li>
+<li>Jul 8, 2026 · Byrna Technologies Inc. (NASDAQ: BYRN) is a technology company specializing in the areas of Personal Security Devices, Military, Law Enforcemen…</li>
+<li><a href="https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/">Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN | Byrna Technologies, Inc. Common Institutional ...BYRN - Byrna Technologies Inc. Stock - Stock Price ... - FintelByrna Technologies (BYRN) Stock Price, News &amp; AnalysisBYRN Institutional Ownership &amp; Insider Trading - Filings ...</a></li>
+<li>BYRN's current price target is $7.88. Learn why top analysts are making this stock forecast for Byrna Technologies at MarketBeat. Oct 22, 2025 · Byrna Techno…</li>
+<li><a href="https://www.ainvest.com/news/byrna-technologies-byrn-bullish-thesis-long-term-growth-2510/">Byrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...</a></li>
+<li>Oct 22, 2025 · Byrna Technologies Inc. (BYRN) is a leading provider of less-lethal self-defense technology with a diverse product portfolio spanning handheld…</li>
+<li><a href="https://www.quiverquant.com/stock/BYRN/institutions/">BYRN | Byrna Technologies, Inc. Common Institutional ...</a></li>
+<li>View the latest changes in ownership of Byrna Technologies, Inc. Common Stock (BYRN) by institutional investors. See the top funds and the values of their po…</li>
+<li><a href="https://ca.finance.yahoo.com/quote/BYRN/chart/?p=BYRN">Byrna Technologies Inc. (BYRN) Interactive Stock Chart - Yahoo Finance</a></li>
+<li>Interactive Chart for Byrna Technologies Inc. (BYRN), analyze all the data with a huge range of indicators.Cryptocurrencies. Rates. Commodities. Currencies. …</li>
+<li><a href="https://pluang.com/en/compare/azn-vs-byrn">AstraZeneca plc (AZN) vs Byrna Technologies Inc (BYRN)... | Pluang</a></li>
+<li>BYRN trades at $3.26, down 2.4% today, with bearish technical signals from moving averages despite oversold RSI readings. The company reported a Q2 2026 loss…</li>
+<li><a href="https://markets.financialcontent.com/stocks/article/stockstory-2026-7-20-why-byrna-byrn-shares-are-sliding-today">FinancialContent - Why Byrna (BYRN) Shares Are Sliding Today</a></li>
+<li>Shares of non-lethal weapons company Byrna (NASDAQ: BYRN) fell 4.1% in the afternoon session after the company announced the appointment of James White as Se…</li>
+<li><a href="https://www.webull.com/quote/nasdaq-byrn">BYRN - Stock Quotes for BYRN Ent Holdg, NASDAQ: BYRN... - Webull</a></li>
+<li>Webull offers BYRN Ent Holdg (BYRN) historical stock prices, in-depth market analysis, NASDAQ: BYRN real-time stock quote data, in-depth charts, free BYRN op…</li>
+<li><a href="https://en.m.wikipedia.org/wiki/Demand">Demand - Wikipedia</a></li>
+<li>Demand curve is a graphical presentation of the "law of demand". [8] The curve shows how the price of a commodity or service changes as the quantity demanded…</li>
+<li><a href="https://openstax.org/books/principles-economics-3e/pages/3-1-demand-supply-and-equilibrium-in-markets-for-goods-and-services">3.1 Demand, Supply, and Equilibrium in Markets for Goods and Services ...</a></li>
+<li>First let’s first focus on what economists mean by demand, what they mean by supply, and then how demand and supply interact in a market. Demand for Goods an…</li>
+<li><a href="https://penpoin.com/market-demand/">Market Demand: Definition, How to Calculate, Determinants</a></li>
+<li>What’s it: Market demand is the sum of individual demand in the market at a given price. Economists define demand as our willingness and ability as consumers…</li>
+<li><a href="https://csimarket.com/stocks/BYRN-Customers">Byrna Technologies Inc Customers by Division and Industry - CSIMarket</a></li>
+<li>Byrna Technologies Inc customers and markets, results by customer and performance relative to BYRN, by company and industry - CSIMarket</li>
+</ul>
+<h3 id="search-warnings_1">Search warnings</h3>
+<ul>
+<li>news:BYRN Institutional deep dive: thesis, priced-in scenarios, catalysts, falsifiers: No results found.</li>
+<li>news:BYRN BYRN outlook OR catalyst OR commodity OR uranium OR rare earth OR vanadium: No results found.</li>
+<li>news:BYRN sector drivers OR market demand: No results found.</li>
+<li>news:BYRN BYRN backlog OR contract OR refinancing OR leverage: No results found.</li>
+</ul>
+<h2 id="sec-filing-s27">SEC filing [S27]</h2>
+<ul>
+<li>Extraction OK: False</li>
+<li>Item 1 chars: 0</li>
+<li>Item 1A chars: 0</li>
+<li>Item 7 chars: 0</li>
+<li>Meta: {'accession_number': '0001437749-26-010311', 'filing_date': '2026-03-30', 'source': 'edgartools', 'path': 'C:\DevWork\equity_research_agent\data\filings\BYRN_10k.txt'}</li>
+</ul>
+<h2 id="qualitative-analysis-local-llm">Qualitative analysis (local LLM)</h2>
+<p><em>Item 1 Business summary mode: empty (see Company setup &amp; business model).</em></p>
+<h3 id="item-1a-risk-factors">Item 1A — Risk Factors</h3>
+<p>No text extracted.</p>
+<h3 id="item-7-mda">Item 7 — MD&amp;A</h3>
+<p>No text extracted.</p>
+<h2 id="run-warnings">Run warnings</h2>
+<ul>
+<li>fundamentals: Failed to perform, curl: (28) Connection timed out after 30008 milliseconds. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</li>
+<li>ev_ebitda: Missing shares outstanding</li>
+<li>dcf: Cannot run DCF without positive base revenue.; Cannot run DCF without shares outstanding.</li>
+<li>scenarios: Missing shares outstanding</li>
+</ul>
+<h2 id="research-loop-think-act">Research loop (think → act)</h2>
+<ol>
+<li><em>heuristic</em> — Coverage looks adequate for this pass; stopping iterative loop.</li>
+</ol>
+<h2 id="sources">Sources</h2>
+<ul>
+<li><strong>[S1]</strong> BYRN fundamentals (yfinance)</li>
+<li>Error: Failed to perform, curl: (28) Connection timed out after 30008 milliseconds. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</li>
+<li><strong>[S2]</strong> BYRN EV/EBITDA valuation (multiples)</li>
+<li>Base implied price=None, multiple=8.0</li>
+<li><strong>[S3]</strong> BYRN DCF valuation (dcf)</li>
+<li>DCF failed: Cannot run DCF without positive base revenue.; Cannot run DCF without shares outstanding.</li>
+<li><strong>[S4]</strong> BYRN peer comps (peers)</li>
+<li>Peers: ; rows=0</li>
+<li><strong>[S5]</strong> BYRN earnings history (earnings)</li>
+<li>rows=0; next=None</li>
+<li><strong>[S6]</strong> Byrna Technologies (BYRN) Stock Forecast &amp; Price Target (web) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/</li>
+<li>BYRN's current price target is $7.88. Learn why top analysts are making this stock forecast for Byrna Technologies at MarketBeat.</li>
+<li><strong>[S7]</strong> What is the current Price Target and Forecast for Byrna Technologies (BYRN) (web) — https://www.zacks.com/stock/research/byrn/price-target-stock-forecast</li>
+<li>Price Target Based on short-term price targets offered by four analysts, the average price target for Byrna Technologies Inc. comes to $7.63. The forecasts range from a low of $…</li>
+<li><strong>[S8]</strong> Byrna Technologies (BYRN) Stock Forecast &amp; Analyst Price Targets (web) — https://stockanalysis.com/stocks/byrn/forecast/</li>
+<li>Stock forecasts and analyst price target predictions for Byrna Technologies Inc. (BYRN) stock, with detailed revenue and earnings estimates.</li>
+<li><strong>[S9]</strong> Byrna Technologies Inc. (BYRN) Analyst Insights, Price Targets ... (web) — https://finance.yahoo.com/quote/BYRN/analyst-insights/</li>
+<li>Yahoo Finance provides the latest analyst insights, price targets, and recommendations on Byrna Technologies Inc. (BYRN) to help inform your investment strategy.</li>
+<li><strong>[S10]</strong> Why did STLA, MAT, BYRN stocks tumble to 52-week lows today? (web) — https://www.msn.com/en-in/money/markets/why-did-stla-mat-byrn-stocks-tumble-to-52-week-lows-today/ar-AA27BZfD?ocid=BingNewsVerp</li>
+<li>Stellantis, Mattel, and Byrna Technologies tumbled to fresh lows on Thursday amid regional weaknesses, poor outlook, and Wall Street caution.</li>
+<li><strong>[S11]</strong> Needham Reiterates Buy on monday.com (MNDY), Sets $250 Price Targe (web) — https://finance.yahoo.com/news/needham-reiterates-buy-monday-com-225907775.html</li>
+<li>monday.com Ltd. (NASDAQ:MNDY) is one of the AI Stocks Analysts Are Watching Closely. On August 18,...</li>
+<li><strong>[S12]</strong> Analysts Have Mixed Views on Glacier Bancorp (GBCI) (web) — https://finance.yahoo.com/markets/stocks/articles/analysts-mixed-views-glacier-bancorp-201806470.html</li>
+<li>Glacier Bancorp, Inc. (NYSE:GBCI) is one of the 11 Best American Bank Stocks to Buy According to Wall Street Analysts. On February 11, Piper Sandler...</li>
+<li><strong>[S13]</strong> What To Expect From Byrna Technologies Inc (BYRN) Q2 2026 Earnings (web) — https://finance.yahoo.com/markets/stocks/articles/expect-byrna-technologies-inc-byrn-131713208.html</li>
+<li>At Yahoo Finance, you get free stock quotes, up-to-date news, portfolio management resources, international market data, social interaction and mortgage rates that help you mana…</li>
+<li><strong>[S14]</strong> Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 (web_page) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/</li>
+<li>Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 Skip to main content → Trump’s emergency dollar reset (From Porter &amp; Company) (Ad) Free BYRN Stock Alerts Byrna Te…</li>
+<li><strong>[S15]</strong> What is the current Price Target and Forecast for Byrna Technologies (BYRN) (web_page) — https://www.zacks.com/stock/research/byrn/price-target-stock-forecast</li>
+<li>Pardon Our Interruption As you were browsing something about your browser made us think you were a bot. There are a few reasons this might happen: You're a power user moving thr…</li>
+<li><strong>[S16]</strong> Byrna Technologies (BYRN) Stock Forecast &amp; Analyst Price Targets (web_page) — https://stockanalysis.com/stocks/byrn/forecast/</li>
+<li>Byrna Technologies (BYRN) Stock Forecast &amp; Analyst Price Targets Collapse Byrna Technologies Inc. (BYRN) NASDAQ: BYRN · Real-Time Price · USD Full Chart Watchlist Alerts Compare…</li>
+<li><strong>[S17]</strong> Investor Relations :: Byrna Technologies Inc. (BYRN) (web) — https://ir.byrna.com/</li>
+<li>Jul 8, 2026 · Byrna Technologies Inc. (NASDAQ: BYRN) is a technology company specializing in the areas of Personal Security Devices, Military, Law Enforcement, Corrections, and …</li>
+<li><strong>[S18]</strong> Byrna Technologies (BYRN) Stock Forecast &amp; Price TargetByrna Technologies Inc. (BYRN): A Bullish Thesis for Long ...BYRN | Byrna Technologies, Inc. Common Institutional ...BYRN - Byrna Technologies Inc. Stock - Stock Price ... - FintelByrna Technologies (BYRN) Stock Price, News &amp; AnalysisBYRN Institutional Ownership &amp; Insider Trading - Filings ... (web) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/</li>
+<li>BYRN's current price target is $7.88. Learn why top analysts are making this stock forecast for Byrna Technologies at MarketBeat. Oct 22, 2025 · Byrna Technologies Inc. (BYRN) i…</li>
+<li><strong>[S19]</strong> Byrna Technologies Inc. (BYRN): A Bullish Thesis for Long ... (web) — https://www.ainvest.com/news/byrna-technologies-byrn-bullish-thesis-long-term-growth-2510/</li>
+<li>Oct 22, 2025 · Byrna Technologies Inc. (BYRN) is a leading provider of less-lethal self-defense technology with a diverse product portfolio spanning handheld devices, launchers,…</li>
+<li><strong>[S20]</strong> BYRN | Byrna Technologies, Inc. Common Institutional ... (web) — https://www.quiverquant.com/stock/BYRN/institutions/</li>
+<li>View the latest changes in ownership of Byrna Technologies, Inc. Common Stock (BYRN) by institutional investors. See the top funds and the values of their positions.</li>
+<li><strong>[S21]</strong> Byrna Technologies Inc. (BYRN) Interactive Stock Chart - Yahoo Finance (web) — https://ca.finance.yahoo.com/quote/BYRN/chart/?p=BYRN</li>
+<li>Interactive Chart for Byrna Technologies Inc. (BYRN), analyze all the data with a huge range of indicators.Cryptocurrencies. Rates. Commodities. Currencies. Canada markets close…</li>
+<li><strong>[S22]</strong> AstraZeneca plc (AZN) vs Byrna Technologies Inc (BYRN)... | Pluang (web) — https://pluang.com/en/compare/azn-vs-byrn</li>
+<li>BYRN trades at $3.26, down 2.4% today, with bearish technical signals from moving averages despite oversold RSI readings. The company reported a Q2 2026 loss of $0.44 per share,…</li>
+<li><strong>[S23]</strong> FinancialContent - Why Byrna (BYRN) Shares Are Sliding Today (web) — https://markets.financialcontent.com/stocks/article/stockstory-2026-7-20-why-byrna-byrn-shares-are-sliding-today</li>
+<li>Shares of non-lethal weapons company Byrna (NASDAQ: BYRN) fell 4.1% in the afternoon session after the company announced the appointment of James White as Senior Vice President …</li>
+<li><strong>[S24]</strong> BYRN - Stock Quotes for BYRN Ent Holdg, NASDAQ: BYRN... - Webull (web) — https://www.webull.com/quote/nasdaq-byrn</li>
+<li>Webull offers BYRN Ent Holdg (BYRN) historical stock prices, in-depth market analysis, NASDAQ: BYRN real-time stock quote data, in-depth charts, free BYRN options chain data, an…</li>
+<li><strong>[S25]</strong> Investor Relations :: Byrna Technologies Inc. (BYRN) (web_page) — https://ir.byrna.com/</li>
+<li>Investor Relations :: Byrna Technologies Inc. (BYRN) Skip to content Shop Less-Lethal<br />
+                                 Pistols Byrna CL-XL New Byrna CL Byrna SD Best<br />
+           …</li>
+<li><strong>[S26]</strong> Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 (web_page) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/</li>
+<li>Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 Skip to main content → Trump’s emergency dollar reset (From Porter &amp; Company) (Ad) Free BYRN Stock Alerts Byrna Te…</li>
+<li><strong>[S27]</strong> BYRN 10-K (sec)</li>
+<li>Item 1 chars=0, Item 1A chars=0, Item 7 chars=0, ok=False, source=edgartools</li>
+<li><strong>[S28]</strong> BYRN 8-K 2026-07-09 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926023101/byrn20260708_8k.htm</li>
+<li>FORM 8-K</li>
+<li><strong>[S29]</strong> BYRN 10-Q 2026-07-09 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926023100/byrn20260531_10q.htm</li>
+<li>FORM 10-Q</li>
+<li><strong>[S30]</strong> BYRN 8-K 2026-07-08 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926023029/byrn20260707_8k.htm</li>
+<li>FORM 8-K</li>
+<li><strong>[S31]</strong> BYRN 8-K 2026-06-18 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926021142/byrn20260618c_8k.htm</li>
+<li>FORM 8-K</li>
+<li><strong>[S32]</strong> BYRN 8-K 2026-06-15 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926020580/byrn20260612_8k.htm</li>
+<li>FORM 8-K</li>
+<li><strong>[S33]</strong> BYRN 8-K 2026-04-09 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926011821/byrn20260408c_8k.htm</li>
+<li>FORM 8-K</li>
+<li><strong>[S34]</strong> BYRN 10-Q 2026-04-09 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926011820/byrn20260228_10q.htm</li>
+<li>FORM 10-Q</li>
+<li><strong>[S35]</strong> BYRN 8-K 2026-04-08 (sec) — https://www.sec.gov/Archives/edgar/data/1354866/000143774926011756/byrn20260408_8k.htm</li>
+<li>FORM 8-K</li>
+<li><strong>[S36]</strong> Item 1 Business summary (nlp)</li>
+<li>
+<h3 id="item-1-business-no-item-1-business-text-extracted">Item 1 — Business No Item 1 Business text extracted.</h3>
+</li>
+<li><strong>[S37]</strong> Item 1A summary (nlp)</li>
+<li>
+<h3 id="item-1a-risk-factors-no-text-extracted">Item 1A — Risk Factors No text extracted.</h3>
+</li>
+<li><strong>[S38]</strong> Item 7 summary (nlp)</li>
+<li>
+<h3 id="item-7-mda-no-text-extracted">Item 7 — MD&amp;A No text extracted.</h3>
+</li>
+<li><strong>[S39]</strong> BYRN scenario price ranges (scenarios)</li>
+<li>ok=False; base mid=None; headwinds=3; tailwinds=4</li>
+<li><strong>[S40]</strong> BYRN driver analysis (drivers)</li>
+<li>ok=False; drivers=7</li>
+<li><strong>[S41]</strong> BYRN memo sections (memo)</li>
+<li>mode=rules; proxies=3</li>
+</ul>
+<h2 id="self-critique">Self-critique</h2>
+<p><em>Automated review (heuristic).</em></p>
+<h3 id="strengths">Strengths</h3>
+<ul>
+<li>Combines local fundamentals, optional DCF scenarios, and cited sources where available.</li>
+<li>Keeps a non-advisory framing for local research drafts.</li>
+</ul>
+<h3 id="issues-gaps">Issues &amp; gaps</h3>
+<ul>
+<li>DCF section was planned but valuation did not complete successfully.</li>
+<li>EV/EBITDA section was planned but multiples valuation did not complete.</li>
+<li>Run recorded 4 tool warning(s); see Run warnings before relying on the draft.</li>
+</ul>
+<h3 id="caution-for-readers">Caution for readers</h3>
+<ul>
+<li>Treat scenario prices as sensitivity output, not a forecast.</li>
+<li>Re-check primary filings and fresh market data before any decision.</li>
+</ul>
+<hr />
+<h1 id="template-valuation-dcf-street-drivers-valuation">Template: Valuation (DCF + Street + drivers) (<code>valuation</code>)</h1>
+<h1 id="byrn-planned-research-report_1">BYRN — Planned Research Report</h1>
+<blockquote>
+<p>Not investment advice. Local research draft only.</p>
+</blockquote>
+<p><strong>Goal:</strong> Estimate intrinsic value under base / bull / bear scenarios<br />
+<strong>Mode:</strong> deep<br />
+<strong>Template:</strong> valuation<br />
+<strong>Planner:</strong> template</p>
+<h2 id="plan-executed_1">Plan executed</h2>
+<ul>
+<li><strong>(1) Financial statements &amp; key metrics</strong> (<code>fundamentals</code>): get_fundamentals</li>
+<li>Revenue, free cash flow, shares outstanding, historical growth rates, margins and leverage. Focus: Estimate intrinsic value under base / bull / bear scenarios</li>
+<li><strong>(2) DCF assumptions &amp; intrinsic value</strong> (<code>valuation</code>): run_dcf</li>
+<li>Establish growth, operating/FCF margins, and WACC; run base / bull / bear share-price scenarios from the assumption pack</li>
+<li><strong>(2b) EV/EBITDA priced-in scenarios</strong> (<code>multiples</code>): run_ev_ebitda</li>
+<li>Cross-check DCF with EBITDA × multiple scenarios</li>
+<li><strong>(3) Analyst reports &amp; Street targets</strong> (<code>web_analysts</code>): search_web</li>
+<li>Consensus targets, ratings, and investment theses from public web sources</li>
+<li><strong>(4) Market &amp; commodity drivers</strong> (<code>web_drivers</code>): search_web</li>
+<li>Sector/commodity drivers that inform bull/bear assumptions (prices, demand, expansion)</li>
+<li><strong>(5a) SEC 10-K intake</strong> (<code>sec_fetch</code>): fetch_10k</li>
+<li>Latest 10-K for business, risk, and MD&amp;A context behind the valuation</li>
+<li><strong>(5b) Business overview (Item 1)</strong> (<code>business</code>): summarize_item_1</li>
+<li>What the company does — products, segments, customers, competitive position</li>
+<li><strong>(5c) Risk factors (Item 1A)</strong> (<code>risks</code>): summarize_item_1a</li>
+<li>Key risks that should stress the bear case</li>
+<li><strong>(5d) MD&amp;A (Item 7)</strong> (<code>mda</code>): summarize_item_7</li>
+<li>Management tone, guidance, and operational cues for scenarios</li>
+<li><strong>(6) Headwind / tailwind price ranges</strong> (<code>scenario_ranges</code>): build_scenario_ranges</li>
+<li>Gemini/Perplexity-style medium-term bear/base/bull ranges: map catalysts &amp; risks → EBITDA/multiple paths → price bands</li>
+</ul>
+<h2 id="fundamentals-s1_1">Fundamentals [S1]</h2>
+<p><strong>Fundamentals error:</strong> Failed to perform, curl: (6) Could not resolve host: query2.finance.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</p>
+<h2 id="dcf-valuation-base-bull-bear-s2">DCF valuation (base / bull / bear) [S2]</h2>
+<blockquote>
+<p>Simplified revenue-&gt;FCF DCF. Not investment advice; assumptions are editable heuristics.</p>
+</blockquote>
+<ul>
+<li><strong>Error:</strong> Cannot run DCF without positive base revenue.</li>
+<li><strong>Error:</strong> Cannot run DCF without shares outstanding.</li>
+</ul>
+<h2 id="valuation-evebitda-scenarios-s3">Valuation — EV/EBITDA scenarios [S3]</h2>
+<blockquote>
+<p>Priced-in model: implied price = (EBITDA × EV/EBITDA − net debt) ÷ shares. Not a forecast.</p>
+</blockquote>
+<ul>
+<li>Net debt used: $0</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th style="text-align: right;">EBITDA</th>
+<th style="text-align: right;">EV/EBITDA</th>
+<th style="text-align: right;">Implied EV</th>
+<th style="text-align: right;">Equity value</th>
+<th style="text-align: right;">Implied price</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td style="text-align: right;">$700.00M</td>
+<td style="text-align: right;">6.0x</td>
+<td style="text-align: right;">$4.20B</td>
+<td style="text-align: right;">$4.20B</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>base</td>
+<td style="text-align: right;">$1.00B</td>
+<td style="text-align: right;">8.0x</td>
+<td style="text-align: right;">$8.00B</td>
+<td style="text-align: right;">$8.00B</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td>bull</td>
+<td style="text-align: right;">$1.20B</td>
+<td style="text-align: right;">10.0x</td>
+<td style="text-align: right;">$12.00B</td>
+<td style="text-align: right;">$12.00B</td>
+<td style="text-align: right;">—</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>EBITDA missing or non-positive; scenarios use placeholder $1B EBITDA — edit before relying on prices.</li>
+<li>No current EV/EBITDA; defaulted base multiple to 8.0x.</li>
+<li><strong>Error:</strong> Missing shares outstanding</li>
+</ul>
+<h2 id="scenario-price-ranges-headwinds-tailwinds-s29">Scenario price ranges (headwinds &amp; tailwinds) [S29]</h2>
+<blockquote>
+<p>Medium-term (18–36 months (medium / medium-long term)) driver → EV/EBITDA bridge. Distinct from the FCF DCF path. Not investment advice.</p>
+</blockquote>
+<ul>
+<li>Anchor multiple: 8.0x (driver_ev_ebitda_bridge)</li>
+<li>Anchor EBITDA: $1.00B</li>
+<li>Driver extraction: <code>rules</code></li>
+</ul>
+<h3 id="headwinds-bear-case-fuel_1">Headwinds (bear-case fuel)</h3>
+<ul>
+<li><strong>Balance-sheet / refinancing pressure</strong> — sector=None industry=None revenue=None ebitda=None fcf=None net_debt=None nd_ebitda=None target=None rec=None <em>(source: fundamentals)</em></li>
+<li><strong>Competitive / pricing pressure</strong> — Commodity Prices | Commodity Market | Markets Insider Get all information on the commodity market. Find the latest commodity prices including News, Charts, Realtime Quotes and even <em>(source: web)</em></li>
+</ul>
+<h3 id="tailwinds-bull-case-fuel_1">Tailwinds (bull-case fuel)</h3>
+<ul>
+<li><strong>Growth / execution upside</strong> — Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 MarketBeat calculates consensus analyst ratings for stocks using the most recent rating from each Wall Street analyst <em>(source: web)</em></li>
+<li><strong>Product / pricing power</strong> — Stocks See Support from Airline Stocks but Trade Uncertainty Persists The S&amp;P 500 Index ($SPX ) (SPY ) today is up +0.10%, the Dow Jones Industrials Index ($DOWI ) (DIA )... <em>(source: web)</em></li>
+<li><strong>Capital returns / FCF inflection</strong> — BYRN Intrinsic Valuation and Fundamental Analysis - Byrna Technologies Inc - Alpha Spread BYRN Intrinsic Valuation and Fundamental Analysis - Byrna Technologies Inc - Alpha Spread  <em>(source: web_page)</em></li>
+</ul>
+<h3 id="price-ranges-by-case_1">Price ranges by case</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Case</th>
+<th style="text-align: right;">Prob.</th>
+<th style="text-align: right;">Metric vs TTM</th>
+<th style="text-align: right;">Multiple</th>
+<th style="text-align: right;">Price low</th>
+<th style="text-align: right;">Mid</th>
+<th style="text-align: right;">High</th>
+<th style="text-align: right;">Upside vs spot</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td style="text-align: right;">0.24</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">Missing shares outstanding</td>
+</tr>
+<tr>
+<td>base</td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">Missing shares outstanding</td>
+</tr>
+<tr>
+<td>bull</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">Missing shares outstanding</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="bear-headwinds-dominate_1">Bear — headwinds dominate</h4>
+<p>Headwinds bite: weaker operating trajectory and multiple compression. Equity duration shrinks if cash generation fails to offset leverage / competitive pressure.</p>
+<ul>
+<li>Driver: <strong>Balance-sheet / refinancing pressure</strong> — sector=None industry=None revenue=None ebitda=None fcf=None net_debt=None nd_ebitda=None target=None rec=None</li>
+<li>Driver: <strong>Competitive / pricing pressure</strong> — Commodity Prices | Commodity Market | Markets Insider Get all information on the commodity market. Find the latest commodity prices including News, Charts, Real</li>
+</ul>
+<h4 id="base-mixed-execution_1">Base — mixed execution</h4>
+<p>Balanced path: some tailwinds offset headwinds. Operating scale roughly holds with modest repair/normalization; valuation stays near the current EV/EBITDA anchor.</p>
+<ul>
+<li>Driver: <strong>Growth / execution upside</strong> — Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 MarketBeat calculates consensus analyst ratings for stocks using the most recent rating from each</li>
+<li>Driver: <strong>Product / pricing power</strong> — Stocks See Support from Airline Stocks but Trade Uncertainty Persists The S&amp;P 500 Index ($SPX ) (SPY ) today is up +0.10%, the Dow Jones Industrials Index ($DOW</li>
+<li>Driver: <strong>Balance-sheet / refinancing pressure</strong> — sector=None industry=None revenue=None ebitda=None fcf=None net_debt=None nd_ebitda=None target=None rec=None</li>
+<li>Driver: <strong>Competitive / pricing pressure</strong> — Commodity Prices | Commodity Market | Markets Insider Get all information on the commodity market. Find the latest commodity prices including News, Charts, Real</li>
+</ul>
+<h4 id="bull-tailwinds-dominate_1">Bull — tailwinds dominate</h4>
+<p>Tailwinds compound: operating improvement plus a re-rating toward peer or recovery multiples as balance-sheet and growth narratives improve.</p>
+<ul>
+<li>Driver: <strong>Growth / execution upside</strong> — Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 MarketBeat calculates consensus analyst ratings for stocks using the most recent rating from each</li>
+<li>Driver: <strong>Product / pricing power</strong> — Stocks See Support from Airline Stocks but Trade Uncertainty Persists The S&amp;P 500 Index ($SPX ) (SPY ) today is up +0.10%, the Dow Jones Industrials Index ($DOW</li>
+<li>Driver: <strong>Capital returns / FCF inflection</strong> — BYRN Intrinsic Valuation and Fundamental Analysis - Byrna Technologies Inc - Alpha Spread BYRN Intrinsic Valuation and Fundamental Analysis - Byrna Technologies</li>
+</ul>
+<h3 id="method-notes_1">Method notes</h3>
+<ul>
+<li>Item 1A risks weighted toward headwinds.</li>
+<li>Current ev_ebitda multiple missing; anchored at 8.0x.</li>
+<li>Mapping follows Gemini/Perplexity-style scenario memos: qualitative drivers → operating metric &amp; multiple paths → share-price ranges over a medium-term horizon.</li>
+</ul>
+<h3 id="errors_1">Errors</h3>
+<ul>
+<li>Missing shares outstanding</li>
+</ul>
+<h2 id="web-research-web_analysts_1">Web research — web_analysts</h2>
+<ul>
+<li>Queries: BYRN analyst price target, BYRN stock rating OR consensus OR upgrade OR downgrade, BYRN Estimate intrinsic value under base / bull / bear scenarios analyst</li>
+<li>Unique hits: 12</li>
+<li>Pages fetched: 2/3</li>
+</ul>
+<h3 id="web-synthesis-web_analysts-rule-based-fallback-ollama-unavailable_1">Web synthesis — web_analysts (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> uncertainty, customer, product, service, market, network</p>
+<ul>
+<li>[HIT] Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 | www.marketbeat.com | https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/ MarketBeat calculates consensus analyst ratings for stocks using the most recent rating from each Wall Street analyst that has rated a stock within the last twelve months.</li>
+<li>[HIT] Stocks Under Some Pressure as Optimism Fades Over US-Iran Ceasefire | Barchart · via Yahoo Finance | https://finance.yahoo.com/markets/stocks/articles/stocks-under-pressure-optimism-fades-140947179.html The S&amp;P 500 Index ($SPX ) (SPY ) today is down -0.04%, the Dow Jones Industrial Average ($DOWI )...</li>
+<li>[HIT] Stocks See Support from Airline Stocks but Trade Uncertainty Persists | Barchart · via Yahoo Finance | https://finance.yahoo.com/news/stocks-see-support-airline-stocks-151824703.html The S&amp;P 500 Index ($SPX ) (SPY ) today is up +0.10%, the Dow Jones Industrials Index ($DOWI ) (DIA )...</li>
+<li>[PAGE] Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 | https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/ Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 Skip to main content → Universal basic income is not impossible.</li>
+<li>It exist (kind of) (From Freedom Financial) (Ad) Free BYRN Stock Alerts Byrna Technologies (BYRN)  Stock Forecast &amp; Price Target $3.72 +0.35 (+10.39%) As of 12:50 PM Eastern This is a fair market value price provided by Massive.</li>
+<li>Add Compare Share Share Analyst Forecasts Stock Analysis Analyst Forecasts Chart Competitors Earnings Financials Headlines Insider Trades Options Chain Ownership SEC Filings Trends Buy This Stock Byrna Technologies - Analysts' Recommendations and Stock Price Forecast (2026) How MarketBeat Calculates Price Target and Consensus Rating Consensus Rating Moderate Buy Based on 6 Analyst Ratings Sell 1 Hold 2 Buy 3 Based on 6 Wall Street analysts who have issued ratings for Byrna Technologies in the last 12 months ,  the stock has a consensus rating of "Moderate Buy." Out of the 6 analysts, 1 has given a sell rating, 2 have given a hold rating, 1 has given a buy rating, and 2 have given a strong buy rating for  BYRN.</li>
+<li>MarketBeat calculates consensus analyst ratings for stocks using the most recent rating from each Wall Street analyst that has rated a stock within the last twelve months.</li>
+<li>MarketBeat's consensus price targets are a mean average of the most recent available price targets set by each analyst that has set a price target for the stock in the last twelve months.</li>
+</ul>
+<h3 id="sources-found_2">Sources found</h3>
+<ul>
+<li><a href="https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/">Byrna Technologies (BYRN) Stock Forecast and Price Target 2026</a></li>
+<li>MarketBeat calculates consensus analyst ratings for stocks using the most recent rating from each Wall Street analyst that has rated a stock within the last …</li>
+<li><a href="https://finance.yahoo.com/quote/BYRN/">Byrna Technologies Inc. (BYRN) Stock Price, News... - Yahoo Finance</a></li>
+<li>Find the latest Byrna Technologies Inc. (BYRN) stock quote, history, news and other vital information to help you with your stock trading and investing.</li>
+<li><a href="https://www.chartmill.com/stock/quote/BYRN/analyst-ratings">BYRNA TECHNOLOGIES INC(NASDAQ:BYRN) stock Analyst Ratings</a></li>
+<li>The Buy consensus is the weighted average rating of the current analysts ratings. Analysts have set a mean price target forecast of 39.27. This target is 92.…</li>
+<li><a href="https://stockanalysis.com/stocks/byrn/">Byrna Technologies (BYRN) Stock Price &amp; Overview</a></li>
+<li>According to 3 analysts, the average rating for BYRN stock is "Buy." The 12-month stock price target is $13.67, which is an increase of 216.44% from the late…</li>
+<li><a href="https://finance.yahoo.com/markets/stocks/articles/stocks-under-pressure-optimism-fades-140947179.html">Stocks Under Some Pressure as Optimism Fades Over US-Iran Ceasefire</a></li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) today is down -0.04%, the Dow Jones Industrial Average ($DOWI )...</li>
+<li><a href="https://finance.yahoo.com/news/stocks-see-support-airline-stocks-151824703.html">Stocks See Support from Airline Stocks but Trade Uncertainty Persists</a></li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) today is up +0.10%, the Dow Jones Industrials Index ($DOWI ) (DIA )...</li>
+<li><a href="https://finance.yahoo.com/news/stocks-power-higher-ai-optimism-205037354.html">Stocks Power Higher on AI Optimism</a></li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) on Wednesday closed up +0.58%, the Dow Jones Industrials Index ($DOWI ) (DIA ) closed unchanged, and the Nasdaq 100...</li>
+<li><a href="https://finance.yahoo.com/news/stocks-settle-higher-tech-stock-204327941.html">Stocks Settle Higher on Tech Stock Strength and Lower Bond Yields</a></li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) Wednesday closed up +0.61%, the Dow Jones Industrials Index ($DOWI...</li>
+<li><a href="https://www.alphaspread.com/security/nasdaq/byrn/summary">BYRN Intrinsic Valuation and Fundamental Analysis - Byrna Technologies Inc - Alpha Spread</a></li>
+<li>... Income Statement, Balance Sheet, Cash Flow Statement. ... BYRN stock discount rate: cost of equity and WACC. ... The intrinsic value of one BYRN stock un…</li>
+<li><a href="https://discover.hubpages.com/money/Stock-Valuation-Using-Bear-Bull-and-Base-Case-Scenarios">3 Ways of Calculating a Stock's Intrinsic Value - HubPages</a></li>
+<li>September 12, 2024 - When calculating intrinsic value, it can be helpful to have 3 probability-weighted, projected scenarios mapped out in order to dial in a…</li>
+<li><a href="https://toughnickel.com/personal-finance/Stock-Valuation-Using-Bear-Bull-and-Base-Case-Scenarios">3 Ways of Calculating a Stock's Intrinsic Value - ToughNickel</a></li>
+<li>March 22, 2023 - When calculating intrinsic value, it can be helpful to have 3 probability-weighted, projected scenarios mapped out in order to dial in a spe…</li>
+<li><a href="https://modelreef.io/resources/articles/stock-valuation/how-to-create-a-bull-base-bear-valuation-for-one-stock-scenario-driven-intrinsic-value">Bull Base Bear Valuation for One Stock | Model Reef</a></li>
+<li>April 15, 2026 - The point of bull/base/bear is to show what must be true-not to pretend the world can be summarised in one number. If you want a quick quali…</li>
+</ul>
+<h3 id="search-warnings_2">Search warnings</h3>
+<ul>
+<li>text:BYRN analyst price target: ConnectError: ConnectError('error sending request for url (https://www.mojeek.com/search?q=BYRN+analyst+price+target) &gt; client error (Connect) &gt; dns error &gt; no connections available')</li>
+<li>news:BYRN analyst price target: No results found.</li>
+<li>news:BYRN Estimate intrinsic value under base / bull / bear scenarios analyst: No results found.</li>
+</ul>
+<h2 id="web-research-web_drivers_1">Web research — web_drivers</h2>
+<ul>
+<li>Queries: BYRN Estimate intrinsic value under base / bull / bear scenarios, BYRN BYRN outlook OR catalyst OR commodity OR uranium OR rare earth OR vanadium, BYRN sector drivers OR market demand</li>
+<li>Unique hits: 13</li>
+<li>Pages fetched: 3/3</li>
+</ul>
+<h3 id="web-synthesis-web_drivers-rule-based-fallback-ollama-unavailable_1">Web synthesis — web_drivers (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> risk, revenue, margin, customer, service, market</p>
+<ul>
+<li>Compared to the current market price of 24.17 USD, Byrna Technologies Inc is Overvalued by 69%.</li>
+<li>[HIT] Byrna Technologies (BYRN) Earnings Date and Reports 2026 | www.marketbeat.com | https://www.marketbeat.com/stocks/NASDAQ/BYRN/earnings/ BYRN Upcoming Earnings.</li>
+<li>[HIT] Commodity Prices | Commodity Market | Markets Insider | markets.businessinsider.com | https://markets.businessinsider.com/commodities?op=1 Get all information on the commodity market.</li>
+<li>| finance.yahoo.com | https://finance.yahoo.com/markets/stocks/articles/byrna-nasdaq-byrn-misses-q2-125638829.html Jul 9, 2026 ...</li>
+<li>Byrna's annualized revenue growth of 35.1% over the last two years is above its five-year trend ...</li>
+<li>stock analysis: Q2 revenue -42.5%, margin hit from write-downs and weak demand.</li>
+<li>| www.marketbeat.com | https://www.marketbeat.com/instant-alerts/byrna-technologies-nasdaqbyrn-downgraded-to-strong-sell-rating-by-wall-street-zen-2026-07-12/ Jul 12, 2026 ...</li>
+<li>Essential Insights: Almost Everything You Need to Know About the EV Market ...</li>
+</ul>
+<h3 id="sources-found_3">Sources found</h3>
+<ul>
+<li><a href="https://www.alphaspread.com/security/nasdaq/byrn/summary">BYRN Intrinsic Valuation and Fundamental Analysis... - Alpha Spread</a></li>
+<li>The intrinsic value of one BYRN stock under the Base Case scenario is 7.5 USD. Compared to the current market price of 24.17 USD, Byrna Technologies Inc is O…</li>
+<li><a href="https://www.marketbeat.com/stocks/NASDAQ/BYRN/earnings/">Byrna Technologies (BYRN) Earnings Date and Reports 2026</a></li>
+<li>BYRN Upcoming Earnings. Byrna Technologies' Q2 2026 earnings is estimated for Thursday, July 9, 2026, based on past reporting schedules, with a conference ca…</li>
+<li><a href="https://www.quiverquant.com/stock/BYRN/">BYRN | Byrna Technologies, Inc. Common Stock Data, Price &amp; News</a></li>
+<li>BYRN stock data, price, and news. View BYRN insider trading, corporate lobbying, Congressional trading, social media sentiment, and more.</li>
+<li><a href="https://seekingalpha.com/symbol/BYRN/earnings/estimates">Byrna Technologies Inc. (BYRN) Earnings Estimates... | Seeking Alpha</a></li>
+<li>Top Value Stocks.byrn Summary. Follow. 4.29K followers.</li>
+<li><a href="https://www.iea.org/reports/rare-earth-elements-2025">Rare earth elements 2025 - Analysis - IEA</a></li>
+<li>Rare earth elements 2025 - Analysis and key findings. A report by the International Energy Agency.</li>
+<li><a href="https://markets.businessinsider.com/commodities?op=1">Commodity Prices | Commodity Market | Markets Insider</a></li>
+<li>Get all information on the commodity market. Find the latest commodity prices including News, Charts, Realtime Quotes and even more about commodities.</li>
+<li><a href="https://www.mining.com/commodity/rare-earth/">Rare Earth Archives - MINING.COM</a></li>
+<li>Rare Earth July 24, 2026 Japan finds heavy rare earths dominate seabed deposit Deep-sea rare earth discovery could boost Japan's critical mineral supply and …</li>
+<li><a href="https://investingnews.com/top-uranium-news-stories-2025/">Top 5 Uranium News Stories of 2025 | INN</a></li>
+<li>Uranium was once again in the spotlight this year. Take a look back at 2025 with our top uranium news stories over the last 12 months.</li>
+<li><a href="https://finance.yahoo.com/markets/stocks/articles/byrna-nasdaq-byrn-misses-q2-125638829.html">Byrna (NASDAQ:BYRN) Misses Q2 CY2026 Sales Expectations ...</a></li>
+<li>Jul 9, 2026 ... ... industry trends or demand cycles. Byrna's annualized revenue growth of 35.1% over the last two years is above its five-year trend ...</li>
+<li><a href="https://seekingalpha.com/article/4921219-byrna-technologies-selling-the-solution-is-the-real-challenge">Byrna Technologies: Selling The Solution Is The Real Challenge</a></li>
+<li>Jul 10, 2026 ... Byrna Technologies Inc. stock analysis: Q2 revenue -42.5%, margin hit from write-downs and weak demand. Click for this BYRN update and see ...</li>
+<li><a href="https://www.marketbeat.com/instant-alerts/byrna-technologies-nasdaqbyrn-downgraded-to-strong-sell-rating-by-wall-street-zen-2026-07-12/">Byrna Technologies (NASDAQ:BYRN) Downgraded to Strong Sell ...</a></li>
+<li>Jul 12, 2026 ... Essential Insights: Almost Everything You Need to Know About the EV Market ... AST SpaceMobile Stock Sinks as SpaceX Fallout Rattles Space S…</li>
+<li><a href="https://simplywall.st/stocks/us/capital-goods/nasdaq-byrn/byrna-technologies/future">Byrna Technologies Future Growth - Simply Wall St</a></li>
+<li>Jul 10, 2026 ... Company -7.9% Industry 8.9% Market 12.8%. Forecast ... Earnings vs Market: BYRN is forecast to remain unprofitable over the next 3 years.</li>
+</ul>
+<h3 id="search-warnings_3">Search warnings</h3>
+<ul>
+<li>news:BYRN Estimate intrinsic value under base / bull / bear scenarios: No results found.</li>
+<li>news:BYRN BYRN outlook OR catalyst OR commodity OR uranium OR rare earth OR vanadium: No results found.</li>
+</ul>
+<h2 id="sec-filing-s25">SEC filing [S25]</h2>
+<ul>
+<li>Extraction OK: False</li>
+<li>Item 1 chars: 0</li>
+<li>Item 1A chars: 0</li>
+<li>Item 7 chars: 0</li>
+<li>Meta: {'source': 'cache', 'path': 'C:\DevWork\equity_research_agent\data\filings\BYRN_10k.txt'}</li>
+</ul>
+<h2 id="company-setup-business-model_1">Company setup &amp; business model</h2>
+<p>No Item 1 Business text extracted.</p>
+<p><em>Source: latest 10-K Item 1 (Business), summarized locally.</em></p>
+<h2 id="qualitative-analysis-local-llm_1">Qualitative analysis (local LLM)</h2>
+<h3 id="item-1-business">Item 1 — Business</h3>
+<p>No Item 1 Business text extracted.</p>
+<h3 id="item-1a-risk-factors_1">Item 1A — Risk Factors</h3>
+<p>No text extracted.</p>
+<h3 id="item-7-mda_1">Item 7 — MD&amp;A</h3>
+<p>No text extracted.</p>
+<h2 id="run-warnings_1">Run warnings</h2>
+<ul>
+<li>fundamentals: Failed to perform, curl: (6) Could not resolve host: query2.finance.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</li>
+<li>dcf: Cannot run DCF without positive base revenue.; Cannot run DCF without shares outstanding.</li>
+<li>ev_ebitda: Missing shares outstanding</li>
+<li>scenarios: Missing shares outstanding</li>
+</ul>
+<h2 id="research-loop-think-act_1">Research loop (think → act)</h2>
+<ol>
+<li><em>heuristic</em> — Coverage looks adequate for this pass; stopping iterative loop.</li>
+</ol>
+<h2 id="sources_1">Sources</h2>
+<ul>
+<li><strong>[S1]</strong> BYRN fundamentals (yfinance)</li>
+<li>Error: Failed to perform, curl: (6) Could not resolve host: query2.finance.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.</li>
+<li><strong>[S2]</strong> BYRN DCF valuation (dcf)</li>
+<li>DCF failed: Cannot run DCF without positive base revenue.; Cannot run DCF without shares outstanding.</li>
+<li><strong>[S3]</strong> BYRN EV/EBITDA valuation (multiples)</li>
+<li>Base implied price=None, multiple=8.0</li>
+<li><strong>[S4]</strong> Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 (web) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/</li>
+<li>MarketBeat calculates consensus analyst ratings for stocks using the most recent rating from each Wall Street analyst that has rated a stock within the last twelve months. Each …</li>
+<li><strong>[S5]</strong> Byrna Technologies Inc. (BYRN) Stock Price, News... - Yahoo Finance (web) — https://finance.yahoo.com/quote/BYRN/</li>
+<li>Find the latest Byrna Technologies Inc. (BYRN) stock quote, history, news and other vital information to help you with your stock trading and investing.</li>
+<li><strong>[S6]</strong> BYRNA TECHNOLOGIES INC(NASDAQ:BYRN) stock Analyst Ratings (web) — https://www.chartmill.com/stock/quote/BYRN/analyst-ratings</li>
+<li>The Buy consensus is the weighted average rating of the current analysts ratings. Analysts have set a mean price target forecast of 39.27. This target is 92.12% above the curren…</li>
+<li><strong>[S7]</strong> Byrna Technologies (BYRN) Stock Price &amp; Overview (web) — https://stockanalysis.com/stocks/byrn/</li>
+<li>According to 3 analysts, the average rating for BYRN stock is "Buy." The 12-month stock price target is $13.67, which is an increase of 216.44% from the latest price.</li>
+<li><strong>[S8]</strong> Stocks Under Some Pressure as Optimism Fades Over US-Iran Ceasefire (web) — https://finance.yahoo.com/markets/stocks/articles/stocks-under-pressure-optimism-fades-140947179.html</li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) today is down -0.04%, the Dow Jones Industrial Average ($DOWI )...</li>
+<li><strong>[S9]</strong> Stocks See Support from Airline Stocks but Trade Uncertainty Persists (web) — https://finance.yahoo.com/news/stocks-see-support-airline-stocks-151824703.html</li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) today is up +0.10%, the Dow Jones Industrials Index ($DOWI ) (DIA )...</li>
+<li><strong>[S10]</strong> Stocks Power Higher on AI Optimism (web) — https://finance.yahoo.com/news/stocks-power-higher-ai-optimism-205037354.html</li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) on Wednesday closed up +0.58%, the Dow Jones Industrials Index ($DOWI ) (DIA ) closed unchanged, and the Nasdaq 100...</li>
+<li><strong>[S11]</strong> Stocks Settle Higher on Tech Stock Strength and Lower Bond Yields (web) — https://finance.yahoo.com/news/stocks-settle-higher-tech-stock-204327941.html</li>
+<li>The S&amp;P 500 Index ($SPX ) (SPY ) Wednesday closed up +0.61%, the Dow Jones Industrials Index ($DOWI...</li>
+<li><strong>[S12]</strong> Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 (web_page) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/forecast/</li>
+<li>Byrna Technologies (BYRN) Stock Forecast and Price Target 2026 Skip to main content → Universal basic income is not impossible. It exist (kind of) (From Freedom Financial) (Ad) …</li>
+<li><strong>[S13]</strong> Byrna Technologies Inc. (BYRN) Stock Price, News, Quote &amp; History - Yahoo Finance (web_page) — https://finance.yahoo.com/quote/BYRN/</li>
+<li>Byrna Technologies Inc. (BYRN) Stock Price, News, Quote &amp; History - Yahoo Finance Oops, something went wrong Skip to navigation Skip to main content Skip to right column We are …</li>
+<li><strong>[S14]</strong> BYRN Intrinsic Valuation and Fundamental Analysis... - Alpha Spread (web) — https://www.alphaspread.com/security/nasdaq/byrn/summary</li>
+<li>The intrinsic value of one BYRN stock under the Base Case scenario is 7.5 USD. Compared to the current market price of 24.17 USD, Byrna Technologies Inc is Overvalued by 69%.</li>
+<li><strong>[S15]</strong> Byrna Technologies (BYRN) Earnings Date and Reports 2026 (web) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/earnings/</li>
+<li>BYRN Upcoming Earnings. Byrna Technologies' Q2 2026 earnings is estimated for Thursday, July 9, 2026, based on past reporting schedules, with a conference call scheduled on Tues…</li>
+<li><strong>[S16]</strong> BYRN | Byrna Technologies, Inc. Common Stock Data, Price &amp; News (web) — https://www.quiverquant.com/stock/BYRN/</li>
+<li>BYRN stock data, price, and news. View BYRN insider trading, corporate lobbying, Congressional trading, social media sentiment, and more.</li>
+<li><strong>[S17]</strong> Byrna Technologies Inc. (BYRN) Earnings Estimates... | Seeking Alpha (web) — https://seekingalpha.com/symbol/BYRN/earnings/estimates</li>
+<li>Top Value Stocks.byrn Summary. Follow. 4.29K followers.</li>
+<li><strong>[S18]</strong> Rare earth elements 2025 - Analysis - IEA (web) — https://www.iea.org/reports/rare-earth-elements-2025</li>
+<li>Rare earth elements 2025 - Analysis and key findings. A report by the International Energy Agency.</li>
+<li><strong>[S19]</strong> Commodity Prices | Commodity Market | Markets Insider (web) — https://markets.businessinsider.com/commodities?op=1</li>
+<li>Get all information on the commodity market. Find the latest commodity prices including News, Charts, Realtime Quotes and even more about commodities.</li>
+<li><strong>[S20]</strong> Rare Earth Archives - MINING.COM (web) — https://www.mining.com/commodity/rare-earth/</li>
+<li>Rare Earth July 24, 2026 Japan finds heavy rare earths dominate seabed deposit Deep-sea rare earth discovery could boost Japan's critical mineral supply and reduce reliance on C…</li>
+<li><strong>[S21]</strong> Top 5 Uranium News Stories of 2025 | INN (web) — https://investingnews.com/top-uranium-news-stories-2025/</li>
+<li>Uranium was once again in the spotlight this year. Take a look back at 2025 with our top uranium news stories over the last 12 months.</li>
+<li><strong>[S22]</strong> BYRN Intrinsic Valuation and Fundamental Analysis - Byrna Technologies Inc - Alpha Spread (web_page) — https://www.alphaspread.com/security/nasdaq/byrn/summary</li>
+<li>BYRN Intrinsic Valuation and Fundamental Analysis - Byrna Technologies Inc - Alpha Spread Alpha Spread Dashboard Tools Market News Investing Ideas Pricing Search 100,000+ stocks…</li>
+<li><strong>[S23]</strong> Byrna Technologies (BYRN) Earnings Date and Reports 2026 (web_page) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/earnings/</li>
+<li>Byrna Technologies (BYRN) Earnings Date and Reports 2026 Skip to main content → Trump’s emergency dollar reset (From Porter &amp; Company) (Ad) Free BYRN Stock Alerts Byrna Technolo…</li>
+<li><strong>[S24]</strong> BYRN | Byrna Technologies, Inc. Common Stock Data, Price &amp; News (web_page) — https://www.quiverquant.com/stock/BYRN/</li>
+<li>BYRN | Byrna Technologies, Inc. Common Stock Data, Price &amp; News Skip to Main Content Byrna Technologies, Inc. Common Stock BYRN Real Time Price USD N/A N/A N/A ... Trade BYRN ..…</li>
+<li><strong>[S25]</strong> BYRN 10-K (sec)</li>
+<li>Item 1 chars=0, Item 1A chars=0, Item 7 chars=0, ok=False, source=cache</li>
+<li><strong>[S26]</strong> Item 1 Business summary (nlp)</li>
+<li>
+<h3 id="item-1-business-no-item-1-business-text-extracted_1">Item 1 — Business No Item 1 Business text extracted.</h3>
+</li>
+<li><strong>[S27]</strong> Item 1A summary (nlp)</li>
+<li>
+<h3 id="item-1a-risk-factors-no-text-extracted_1">Item 1A — Risk Factors No text extracted.</h3>
+</li>
+<li><strong>[S28]</strong> Item 7 summary (nlp)</li>
+<li>
+<h3 id="item-7-mda-no-text-extracted_1">Item 7 — MD&amp;A No text extracted.</h3>
+</li>
+<li><strong>[S29]</strong> BYRN scenario price ranges (scenarios)</li>
+<li>ok=False; base mid=None; headwinds=2; tailwinds=3</li>
+</ul>
+<h2 id="self-critique_1">Self-critique</h2>
+<p><em>Automated review (heuristic).</em></p>
+<h3 id="strengths_1">Strengths</h3>
+<ul>
+<li>Combines local fundamentals, optional DCF scenarios, and cited sources where available.</li>
+<li>Keeps a non-advisory framing for local research drafts.</li>
+</ul>
+<h3 id="issues-gaps_1">Issues &amp; gaps</h3>
+<ul>
+<li>DCF section was planned but valuation did not complete successfully.</li>
+<li>EV/EBITDA section was planned but multiples valuation did not complete.</li>
+<li>Draft uses strong recommendation language; this local agent should stay descriptive, not advisory.</li>
+<li>Run recorded 4 tool warning(s); see Run warnings before relying on the draft.</li>
+</ul>
+<h3 id="caution-for-readers_1">Caution for readers</h3>
+<ul>
+<li>Treat scenario prices as sensitivity output, not a forecast.</li>
+<li>Re-check primary filings and fresh market data before any decision.</li>
+</ul>
+<hr />
+<h1 id="template-full-diligence-deep">Template: Full diligence (<code>deep</code>)</h1>
+<h1 id="byrn-planned-research-report_2">BYRN — Planned Research Report</h1>
+<blockquote>
+<p>Not investment advice. Local research draft only.</p>
+</blockquote>
+<p><strong>Goal:</strong> Deep diligence: fundamentals, DCF, web, 10-K risks &amp; MD&amp;A<br />
+<strong>Mode:</strong> deep<br />
+<strong>Template:</strong> deep<br />
+<strong>Planner:</strong> template</p>
+<h2 id="plan-executed_2">Plan executed</h2>
+<ul>
+<li><strong>Fundamentals &amp; ratios</strong> (<code>fundamentals</code>): get_fundamentals</li>
+<li>Revenue, FCF, shares, growth rates, ROIC, FCF yield, debt/equity. Focus: Deep diligence: fundamentals, DCF, web, 10-K risks &amp; MD&amp;A</li>
+<li><strong>DCF valuation (base / bull / bear)</strong> (<code>valuation</code>): run_dcf</li>
+<li>Intrinsic value from growth, FCF margin, and WACC assumptions. Focus: Deep diligence: fundamentals, DCF, web, 10-K risks &amp; MD&amp;A</li>
+<li><strong>Put income screen</strong> (<code>options</code>): screen_puts</li>
+<li>~30–60 DTE OTM puts targeting ~10–15% annualized premium</li>
+<li><strong>News, analysts &amp; market drivers</strong> (<code>web_research</code>): search_web</li>
+<li>Street targets, recent news, sector/commodity drivers via web search + page fetch. Focus: Deep diligence: fundamentals, DCF, web, 10-K risks &amp; MD&amp;A</li>
+<li><strong>SEC 10-K intake</strong> (<code>sec_fetch</code>): fetch_10k</li>
+<li>Latest 10-K; extract Item 1 (Business), Item 1A, and Item 7</li>
+<li><strong>Business overview (Item 1)</strong> (<code>business</code>): summarize_item_1</li>
+<li>Company setup from 10-K Item 1 Business</li>
+<li><strong>Risk factors (Item 1A)</strong> (<code>risks</code>): summarize_item_1a</li>
+<li>Qualitative risks from the filing</li>
+<li><strong>MD&amp;A (Item 7)</strong> (<code>mda</code>): summarize_item_7</li>
+<li>Management discussion, tone, guidance cues</li>
+</ul>
+<h2 id="fundamentals-s1_2">Fundamentals [S1]</h2>
+<ul>
+<li>Company: Byrna Technologies, Inc.</li>
+<li>Sector / industry: Industrials / Aerospace &amp; Defense</li>
+<li>Price: 3.69</li>
+<li>52-week range: $3.17 – $30.62</li>
+<li>Market cap: $83.74M</li>
+<li>Enterprise value: $68.09M</li>
+<li>Shares outstanding: 22.69M</li>
+<li>Beta: 1.786</li>
+<li>Book equity: $65.76M</li>
+<li>Revenue (latest): $118.12M</li>
+<li>EBITDA (latest): $13.95M</li>
+<li>Free cash flow (latest): -$9.20M</li>
+<li>Operating income: $11.84M</li>
+<li>Operating margin: 10.0%</li>
+<li>EV / EBITDA: 4.9x</li>
+<li>ROIC: 21.8%</li>
+<li>FCF yield: -11.0%</li>
+<li>Debt / Equity: 0.035676810073452254</li>
+<li>FCF / share: -$0.41</li>
+<li>Revenue / share: $5.21</li>
+</ul>
+<h3 id="capital-structure">Capital structure</h3>
+<ul>
+<li>Cash: $13.73M</li>
+<li>Short-term debt: $734.00K</li>
+<li>Long-term debt: $1.61M</li>
+<li>Total debt: $2.35M</li>
+<li>Net debt: -$11.38M</li>
+<li>Net debt / EBITDA: -0.8x</li>
+</ul>
+<h3 id="growth">Growth</h3>
+<ul>
+<li>Revenue CAGR: 35.0%</li>
+<li>FCF CAGR: —</li>
+<li>Latest revenue YoY: 37.7%</li>
+<li>Latest FCF YoY: -198.2%</li>
+</ul>
+<h3 id="market-expectations-yfinance-sparse">Market expectations (yfinance, sparse)</h3>
+<ul>
+<li>Mean target: $6.83</li>
+<li>Target range: $4.00 – $12.00</li>
+<li>Recommendation: buy</li>
+</ul>
+<p><em>Consensus revenue/EBITDA forecasts are often unavailable via free feeds; treat targets as point-in-time only.</em></p>
+<h3 id="historical-kpis-multi-year">Historical KPIs (multi-year)</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Year</th>
+<th style="text-align: right;">Revenue</th>
+<th style="text-align: right;">OCF</th>
+<th style="text-align: right;">Capex</th>
+<th style="text-align: right;">FCF</th>
+<th style="text-align: right;">EBITDA</th>
+<th style="text-align: right;">LT debt</th>
+<th style="text-align: right;">Cash</th>
+<th style="text-align: right;">Net debt</th>
+<th style="text-align: right;">Net income</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2025</td>
+<td style="text-align: right;">$118.12M</td>
+<td style="text-align: right;">-$1.57M</td>
+<td style="text-align: right;">$7.63M</td>
+<td style="text-align: right;">-$9.20M</td>
+<td style="text-align: right;">$13.95M</td>
+<td style="text-align: right;">$2.35M</td>
+<td style="text-align: right;">$13.73M</td>
+<td style="text-align: right;">-$11.38M</td>
+<td style="text-align: right;">$9.69M</td>
+</tr>
+<tr>
+<td>2024</td>
+<td style="text-align: right;">$85.76M</td>
+<td style="text-align: right;">$11.74M</td>
+<td style="text-align: right;">$2.37M</td>
+<td style="text-align: right;">$9.37M</td>
+<td style="text-align: right;">$8.16M</td>
+<td style="text-align: right;">$2.64M</td>
+<td style="text-align: right;">$16.83M</td>
+<td style="text-align: right;">-$14.19M</td>
+<td style="text-align: right;">$12.79M</td>
+</tr>
+<tr>
+<td>2023</td>
+<td style="text-align: right;">$42.64M</td>
+<td style="text-align: right;">$3.89M</td>
+<td style="text-align: right;">$903.00K</td>
+<td style="text-align: right;">$2.99M</td>
+<td style="text-align: right;">-$6.53M</td>
+<td style="text-align: right;">$1.90M</td>
+<td style="text-align: right;">$20.50M</td>
+<td style="text-align: right;">-$18.60M</td>
+<td style="text-align: right;">-$8.19M</td>
+</tr>
+<tr>
+<td>2022</td>
+<td style="text-align: right;">$48.04M</td>
+<td style="text-align: right;">-$13.83M</td>
+<td style="text-align: right;">$3.25M</td>
+<td style="text-align: right;">-$17.08M</td>
+<td style="text-align: right;">-$6.88M</td>
+<td style="text-align: right;">$2.55M</td>
+<td style="text-align: right;">$20.07M</td>
+<td style="text-align: right;">-$17.52M</td>
+<td style="text-align: right;">-$7.88M</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="charts">Charts</h2>
+<h3 id="revenue-fcf-history">Revenue &amp; FCF history</h3>
+<p><img alt="Revenue &amp; FCF history" src="../charts/BYRN_deep_revenue_fcf.png" /></p>
+<h3 id="dcf-scenario-prices">DCF scenario prices</h3>
+<p><img alt="DCF scenario prices" src="../charts/BYRN_deep_dcf_scenarios.png" /></p>
+<h3 id="base-case-fcf-path">Base-case FCF path</h3>
+<p><img alt="Base-case FCF path" src="../charts/BYRN_deep_base_fcf_path.png" /></p>
+<h2 id="dcf-valuation-base-bull-bear-s2_1">DCF valuation (base / bull / bear) [S2]</h2>
+<blockquote>
+<p>Simplified revenue-&gt;FCF DCF. Not investment advice; assumptions are editable heuristics.</p>
+</blockquote>
+<ul>
+<li>Spot price: $3.69</li>
+<li>Base revenue: $118.12M</li>
+<li>Shares: 22,693,356</li>
+<li>Net debt (Debt−Cash): -$11.38M</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Growth</th>
+<th>FCF margin</th>
+<th>WACC</th>
+<th>Term. g</th>
+<th>Equity value</th>
+<th>Share price</th>
+<th>Upside</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td>25.0%</td>
+<td>1.0%</td>
+<td>12.0%</td>
+<td>1.5%</td>
+<td>$39.46M</td>
+<td>$1.74</td>
+<td>-52.9%</td>
+</tr>
+<tr>
+<td>base</td>
+<td>35.0%</td>
+<td>3.0%</td>
+<td>10.0%</td>
+<td>2.5%</td>
+<td>$180.36M</td>
+<td>$7.95</td>
+<td>115.4%</td>
+</tr>
+<tr>
+<td>bull</td>
+<td>42.0%</td>
+<td>8.0%</td>
+<td>9.0%</td>
+<td>3.0%</td>
+<td>$732.01M</td>
+<td>$32.26</td>
+<td>774.2%</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="assumption-notes">Assumption notes</h3>
+<ul>
+<li>Base revenue growth seeded from historical rate (37.7%).</li>
+<li>Latest FCF margin was -7.8%; scenarios use normalized positive margins for a going-concern DCF.</li>
+</ul>
+<h3 id="base-case-projected-fcf">Base-case projected FCF</h3>
+<ul>
+<li>Year 1: revenue $159.46M, FCF $4.78M (PV $4.35M)</li>
+<li>Year 2: revenue $215.27M, FCF $6.46M (PV $5.34M)</li>
+<li>Year 3: revenue $290.62M, FCF $8.72M (PV $6.55M)</li>
+<li>Year 4: revenue $392.34M, FCF $11.77M (PV $8.04M)</li>
+<li>Year 5: revenue $529.65M, FCF $15.89M (PV $9.87M)</li>
+<li>Terminal value $217.16M (PV $134.84M)</li>
+</ul>
+<h2 id="web-research-web_research">Web research — web_research</h2>
+<ul>
+<li>Queries: Deep diligence: fundamentals, DCF, web, 10-K risks &amp; MD&amp;A</li>
+<li>Unique hits: 3</li>
+<li>Pages fetched: 3/3</li>
+</ul>
+<h3 id="web-synthesis-web_research-rule-based-fallback-ollama-unavailable">Web synthesis — web_research (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> risk, interest rate, service, market</p>
+<ul>
+<li>[PAGE] SAFER Web - Company Snapshot | https://safer.fmcsa.dot.gov/CompanySnapshot.aspx SAFER Web - Company Snapshot SAFER Table Layout SAFER Table Layout Company Snapshot The Company Snapshot is a concise electronic record of a companyï¿½s <br />
+    identification, size, commodity information, and safety record, including the safety <br />
+    rating (if any), a roadside out-of-service inspection summary, and crash information.</li>
+<li>For example, assuming a 5% annual interest rate, $1 in a savings account will be worth $1.05 in a year.</li>
+<li>Factors such as the company or investor's risk profile and the conditions of the capital markets can affect the discount rate chosen.</li>
+</ul>
+<h3 id="sources-found_4">Sources found</h3>
+<ul>
+<li><a href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx">SAFER Web - Company Snapshot</a></li>
+<li>SAFER Home | Feedback | Privacy Policy | USA.gov | Freedom of Information Act (FOIA) | Accessibility | OIG Hotline | Web Policies and Important Links | Plug-…</li>
+<li><a href="https://www.investopedia.com/terms/d/dcf.asp">investopedia.com/terms/d/dcf.asp</a></li>
+<li>Referensi DCF dapat dilihat pada web investopedia.</li>
+<li><a href="https://webflow.com/login?r=https://webflow.com/dashboard&amp;m=WW91IGhhdmUgYmVlbiBsb2dnZWQgb3V0LiBQbGVhc2Ugc2lnbiBiYWNrIGluIHRvIGNvbnRpbnVlLg==">Login - Webflow</a></li>
+<li>You have been logged out. Please sign back in to continue.</li>
+</ul>
+<h3 id="search-warnings_4">Search warnings</h3>
+<ul>
+<li>news:Deep diligence: fundamentals, DCF, web, 10-K risks &amp; MD&amp;A: No results found.</li>
+</ul>
+<h2 id="put-opportunities-heuristic-s3">Put opportunities (heuristic) [S3]</h2>
+<ul>
+<li>Expiration: 2026-09-18 (DTE 56)</li>
+<li>Candidates: 0</li>
+<li>ATM IV (est.): 135.9%</li>
+<li>IV rank: — (1 local samples)</li>
+<li>HV rank (20d realized): 100.0%</li>
+</ul>
+<p><em>Note: Delta band approximated via % OTM when greeks are unavailable; IV rank needs ~20+ local daily IV samples (have 1); run the options screen over time to build history.; HV rank is realized-vol rank (20d HV vs ~1y); useful when IV history is thin.</em></p>
+<h2 id="sec-filing-s10">SEC filing [S10]</h2>
+<ul>
+<li>Extraction OK: False</li>
+<li>Item 1 chars: 0</li>
+<li>Item 1A chars: 0</li>
+<li>Item 7 chars: 0</li>
+<li>Meta: {'source': 'cache', 'path': 'C:\DevWork\equity_research_agent\data\filings\BYRN_10k.txt'}</li>
+</ul>
+<h2 id="company-setup-business-model_2">Company setup &amp; business model</h2>
+<p>No Item 1 Business text extracted.</p>
+<p><em>Source: latest 10-K Item 1 (Business), summarized locally.</em></p>
+<h2 id="qualitative-analysis-local-llm_2">Qualitative analysis (local LLM)</h2>
+<h3 id="item-1-business_1">Item 1 — Business</h3>
+<p>No Item 1 Business text extracted.</p>
+<h3 id="item-1a-risk-factors_2">Item 1A — Risk Factors</h3>
+<p>No text extracted.</p>
+<h3 id="item-7-mda_2">Item 7 — MD&amp;A</h3>
+<p>No text extracted.</p>
+<h2 id="research-loop-think-act_2">Research loop (think → act)</h2>
+<ol>
+<li><em>heuristic</em> — Coverage looks adequate for this pass; stopping iterative loop.</li>
+</ol>
+<h2 id="sources_2">Sources</h2>
+<ul>
+<li><strong>[S1]</strong> BYRN fundamentals (yfinance)</li>
+<li>Byrna Technologies, Inc.: price=3.69, rev=118120000.0, fcf=-9201000.0, shares=22693356.0, rev_cagr=0.3497464711860472, ROIC=0.2177063410328086, FCF yield=-0.10987779000738584</li>
+<li><strong>[S2]</strong> BYRN DCF valuation (dcf)</li>
+<li>Base share price=7.947753124041503, bull=32.256417371811665, bear=1.7389795505454393</li>
+<li><strong>[S3]</strong> BYRN put screen (yfinance_options)</li>
+<li>Expiration 2026-09-18 (DTE 56): 0 candidates; IV=1.359378203125, IV rank=None, HV rank=1.0. Delta band approximated via % OTM when greeks are unavailable; IV rank needs ~20+ loc…</li>
+<li><strong>[S4]</strong> SAFER Web - Company Snapshot (web) — https://safer.fmcsa.dot.gov/CompanySnapshot.aspx</li>
+<li>SAFER Home | Feedback | Privacy Policy | USA.gov | Freedom of Information Act (FOIA) | Accessibility | OIG Hotline | Web Policies and Important Links | Plug-ins.</li>
+<li><strong>[S5]</strong> investopedia.com/terms/d/dcf.asp (web) — https://www.investopedia.com/terms/d/dcf.asp</li>
+<li>Referensi DCF dapat dilihat pada web investopedia.</li>
+<li><strong>[S6]</strong> Login - Webflow (web) — https://webflow.com/login?r=https://webflow.com/dashboard&amp;m=WW91IGhhdmUgYmVlbiBsb2dnZWQgb3V0LiBQbGVhc2Ugc2lnbiBiYWNrIGluIHRvIGNvbnRpbnVlLg==</li>
+<li>You have been logged out. Please sign back in to continue.</li>
+<li><strong>[S7]</strong> SAFER Web - Company Snapshot (web_page) — https://safer.fmcsa.dot.gov/CompanySnapshot.aspx</li>
+<li>SAFER Web - Company Snapshot SAFER Table Layout SAFER Table Layout Company Snapshot The Company Snapshot is a concise electronic record of a companyï¿½s <br />
+    identification, size,…</li>
+<li><strong>[S8]</strong> Discounted Cash Flow (DCF) Explained With Formula and Examples (web_page) — https://www.investopedia.com/terms/d/dcf.asp</li>
+<li>Discounted Cash Flow (DCF) Explained With Formula and Examples ​ Top Stories Making Sense of Modern Crypto How Much Couples With Annuity Income Need to Retire More Americans Bec…</li>
+<li><strong>[S9]</strong> Login - Webflow (web_page) — https://webflow.com/login?r=https://webflow.com/dashboard&amp;m=WW91IGhhdmUgYmVlbiBsb2dnZWQgb3V0LiBQbGVhc2Ugc2lnbiBiYWNrIGluIHRvIGNvbnRpbnVlLg==</li>
+<li>Login - Webflow Log in to your account Continue with SSO You have been logged out. Please sign back in to continue. or Forgot your password? Continue Don't have an account? Sign up</li>
+<li><strong>[S10]</strong> BYRN 10-K (sec)</li>
+<li>Item 1 chars=0, Item 1A chars=0, Item 7 chars=0, ok=False, source=cache</li>
+<li><strong>[S11]</strong> Item 1 Business summary (nlp)</li>
+<li>
+<h3 id="item-1-business-no-item-1-business-text-extracted_2">Item 1 — Business No Item 1 Business text extracted.</h3>
+</li>
+<li><strong>[S12]</strong> Item 1A summary (nlp)</li>
+<li>
+<h3 id="item-1a-risk-factors-no-text-extracted_2">Item 1A — Risk Factors No text extracted.</h3>
+</li>
+<li><strong>[S13]</strong> Item 7 summary (nlp)</li>
+<li>
+<h3 id="item-7-mda-no-text-extracted_2">Item 7 — MD&amp;A No text extracted.</h3>
+</li>
+</ul>
+<h2 id="self-critique_2">Self-critique</h2>
+<p><em>Automated review (heuristic).</em></p>
+<h3 id="strengths_2">Strengths</h3>
+<ul>
+<li>Combines local fundamentals, optional DCF scenarios, and cited sources where available.</li>
+<li>Keeps a non-advisory framing for local research drafts.</li>
+</ul>
+<h3 id="issues-gaps_2">Issues &amp; gaps</h3>
+<ul>
+<li>No major structural issues flagged by heuristics.</li>
+</ul>
+<h3 id="caution-for-readers_2">Caution for readers</h3>
+<ul>
+<li>Treat scenario prices as sensitivity output, not a forecast.</li>
+<li>Re-check primary filings and fresh market data before any decision.</li>
+</ul>
+<hr />
+<h1 id="template-options-income-income">Template: Options income (<code>income</code>)</h1>
+<h1 id="byrn-planned-research-report_3">BYRN — Planned Research Report</h1>
+<blockquote>
+<p>Not investment advice. Local research draft only.</p>
+</blockquote>
+<p><strong>Goal:</strong> Screen put/call income opportunities with catalyst awareness<br />
+<strong>Mode:</strong> deep<br />
+<strong>Template:</strong> income<br />
+<strong>Planner:</strong> template</p>
+<h2 id="plan-executed_3">Plan executed</h2>
+<ul>
+<li><strong>Fundamentals check</strong> (<code>fundamentals</code>): get_fundamentals</li>
+<li>Liquidity, leverage, and volatility context for income overlays. Focus: Screen put/call income opportunities with catalyst awareness</li>
+<li><strong>Put income screen</strong> (<code>options</code>): screen_puts</li>
+<li>~30–60 DTE OTM puts targeting ~10–15% annualized premium</li>
+<li><strong>Recent news &amp; catalysts</strong> (<code>web_research</code>): search_web</li>
+<li>Near-term events that could spoil a short-premium thesis</li>
+</ul>
+<h2 id="fundamentals-s1_3">Fundamentals [S1]</h2>
+<ul>
+<li>Company: Byrna Technologies, Inc.</li>
+<li>Sector / industry: Industrials / Aerospace &amp; Defense</li>
+<li>Price: 3.7099</li>
+<li>52-week range: $3.17 – $30.62</li>
+<li>Market cap: $84.19M</li>
+<li>Enterprise value: $68.09M</li>
+<li>Shares outstanding: 22.69M</li>
+<li>Beta: 1.786</li>
+<li>Book equity: $65.76M</li>
+<li>Revenue (latest): $118.12M</li>
+<li>EBITDA (latest): $13.95M</li>
+<li>Free cash flow (latest): -$9.20M</li>
+<li>Operating income: $11.84M</li>
+<li>Operating margin: 10.0%</li>
+<li>EV / EBITDA: 4.9x</li>
+<li>ROIC: 21.8%</li>
+<li>FCF yield: -10.9%</li>
+<li>Debt / Equity: 0.035676810073452254</li>
+<li>FCF / share: -$0.41</li>
+<li>Revenue / share: $5.21</li>
+</ul>
+<h3 id="capital-structure_1">Capital structure</h3>
+<ul>
+<li>Cash: $13.73M</li>
+<li>Short-term debt: $734.00K</li>
+<li>Long-term debt: $1.61M</li>
+<li>Total debt: $2.35M</li>
+<li>Net debt: -$11.38M</li>
+<li>Net debt / EBITDA: -0.8x</li>
+</ul>
+<h3 id="growth_1">Growth</h3>
+<ul>
+<li>Revenue CAGR: 35.0%</li>
+<li>FCF CAGR: —</li>
+<li>Latest revenue YoY: 37.7%</li>
+<li>Latest FCF YoY: -198.2%</li>
+</ul>
+<h3 id="market-expectations-yfinance-sparse_1">Market expectations (yfinance, sparse)</h3>
+<ul>
+<li>Mean target: $6.83</li>
+<li>Target range: $4.00 – $12.00</li>
+<li>Recommendation: buy</li>
+</ul>
+<p><em>Consensus revenue/EBITDA forecasts are often unavailable via free feeds; treat targets as point-in-time only.</em></p>
+<h3 id="historical-kpis-multi-year_1">Historical KPIs (multi-year)</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Year</th>
+<th style="text-align: right;">Revenue</th>
+<th style="text-align: right;">OCF</th>
+<th style="text-align: right;">Capex</th>
+<th style="text-align: right;">FCF</th>
+<th style="text-align: right;">EBITDA</th>
+<th style="text-align: right;">LT debt</th>
+<th style="text-align: right;">Cash</th>
+<th style="text-align: right;">Net debt</th>
+<th style="text-align: right;">Net income</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2025</td>
+<td style="text-align: right;">$118.12M</td>
+<td style="text-align: right;">-$1.57M</td>
+<td style="text-align: right;">$7.63M</td>
+<td style="text-align: right;">-$9.20M</td>
+<td style="text-align: right;">$13.95M</td>
+<td style="text-align: right;">$2.35M</td>
+<td style="text-align: right;">$13.73M</td>
+<td style="text-align: right;">-$11.38M</td>
+<td style="text-align: right;">$9.69M</td>
+</tr>
+<tr>
+<td>2024</td>
+<td style="text-align: right;">$85.76M</td>
+<td style="text-align: right;">$11.74M</td>
+<td style="text-align: right;">$2.37M</td>
+<td style="text-align: right;">$9.37M</td>
+<td style="text-align: right;">$8.16M</td>
+<td style="text-align: right;">$2.64M</td>
+<td style="text-align: right;">$16.83M</td>
+<td style="text-align: right;">-$14.19M</td>
+<td style="text-align: right;">$12.79M</td>
+</tr>
+<tr>
+<td>2023</td>
+<td style="text-align: right;">$42.64M</td>
+<td style="text-align: right;">$3.89M</td>
+<td style="text-align: right;">$903.00K</td>
+<td style="text-align: right;">$2.99M</td>
+<td style="text-align: right;">-$6.53M</td>
+<td style="text-align: right;">$1.90M</td>
+<td style="text-align: right;">$20.50M</td>
+<td style="text-align: right;">-$18.60M</td>
+<td style="text-align: right;">-$8.19M</td>
+</tr>
+<tr>
+<td>2022</td>
+<td style="text-align: right;">$48.04M</td>
+<td style="text-align: right;">-$13.83M</td>
+<td style="text-align: right;">$3.25M</td>
+<td style="text-align: right;">-$17.08M</td>
+<td style="text-align: right;">-$6.88M</td>
+<td style="text-align: right;">$2.55M</td>
+<td style="text-align: right;">$20.07M</td>
+<td style="text-align: right;">-$17.52M</td>
+<td style="text-align: right;">-$7.88M</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="charts_1">Charts</h2>
+<h3 id="revenue-fcf-history_1">Revenue &amp; FCF history</h3>
+<p><img alt="Revenue &amp; FCF history" src="../charts/BYRN_income_revenue_fcf.png" /></p>
+<h2 id="web-research-web_research_1">Web research — web_research</h2>
+<ul>
+<li>Queries: BYRN news, Byrna Technologies, Inc. earnings OR catalyst</li>
+<li>Unique hits: 14</li>
+<li>Pages fetched: 1/3</li>
+</ul>
+<h3 id="web-synthesis-web_research-rule-based-fallback-ollama-unavailable_1">Web synthesis — web_research (rule-based fallback — Ollama unavailable)</h3>
+<p><strong>Keyword hits:</strong> revenue, margin, market</p>
+<ul>
+<li>| www.marketbeat.com | https://www.marketbeat.com/stocks/NASDAQ/BYRN/news/ Read today's BYRN news from trusted media outlets at MarketBeat.</li>
+<li>(BYRN) | ir.byrna.com | https://ir.byrna.com/news-events/press-releases Jun 18, 2026 · Byrna Technologies Realigns Sales and Marketing Function to Strengthen Brand Messaging and Accelerate Retail Expansion; Appoints HLK as Agency of Record  [HIT] Byrna Technologies Inc.</li>
+<li>(BYRN) Reports Q2 Loss, Lags Revenue Estimates | Zacks.com on MSN | https://www.msn.com/en-us/money/topstocks/byrna-technologies-inc-byrn-reports-q2-loss-lags-revenue-estimates/ar-AA27zswG?ocid=BingNewsVerp Byrna Technologies Inc.</li>
+<li>| Asianet Newsable on MSN | https://www.msn.com/en-in/money/markets/why-did-stla-mat-byrn-stocks-tumble-to-52-week-lows-today/ar-AA27BZfD?ocid=BingNewsVerp Stellantis, Mattel, and Byrna Technologies tumbled to fresh lows on Thursday amid regional weaknesses, poor outlook, and Wall Street caution.</li>
+<li>| Zacks · via Yahoo Finance | https://finance.yahoo.com/markets/stocks/articles/analysts-estimate-byrna-technologies-inc-140001067.html Byrna Technologies (BYRN) doesn't possess the right combination of the two key ingredients for a...</li>
+<li>· via Yahoo Finance | https://finance.yahoo.com/markets/stocks/articles/byrna-technologies-byrn-rising-sales-211339237.html Byrna Technologies Inc.</li>
+<li>| https://www.marketbeat.com/stocks/NASDAQ/BYRN/news/ BYRN News Today | Why did Byrna Technologies stock go up today?</li>
+<li>(From Awesomely) (Ad) Free BYRN Stock Alerts Byrna Technologies (BYRN) News Today $3.70 +0.34 (+9.94%) As of 01:05 PM Eastern This is a fair market value price provided by Massive.</li>
+</ul>
+<h3 id="sources-found_5">Sources found</h3>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/Byron_Nelson">Byron Nelson</a></li>
+<li>John Byron Nelson Jr. (February 4, 1912 – September 26, 2006) was an American professional golfer between 1935 and 1946, widely considered one of the greates…</li>
+<li><a href="https://www.marketbeat.com/stocks/NASDAQ/BYRN/news/">BYRN News Today | Why did Byrna Technologies stock go up ...</a></li>
+<li>Read today's BYRN news from trusted media outlets at MarketBeat.</li>
+<li><a href="https://finance.yahoo.com/quote/BYRN/news/?fr=sycsrp_catchall">Byrna Technologies Inc. (BYRN) Latest Stock News &amp; Headlines ...</a></li>
+<li>Get the latest Byrna Technologies Inc. (BYRN) stock news and headlines to help you in your trading and investing decisions.</li>
+<li><a href="https://ir.byrna.com/news-events/press-releases">Press Releases :: Byrna Technologies Inc. (BYRN)</a></li>
+<li>Jun 18, 2026 · Byrna Technologies Realigns Sales and Marketing Function to Strengthen Brand Messaging and Accelerate Retail Expansion; Appoints HLK as Agency…</li>
+<li><a href="https://www.msn.com/en-us/money/topstocks/byrna-technologies-inc-byrn-reports-q2-loss-lags-revenue-estimates/ar-AA27zswG?ocid=BingNewsVerp">Byrna Technologies Inc. (BYRN) Reports Q2 Loss, Lags Revenue Estimates</a></li>
+<li>Byrna Technologies Inc. (BYRN) came out with a quarterly loss of $0.44 per share versus the Zacks Consensus Estimate of a ...</li>
+<li><a href="https://www.nasdaq.com/articles/noteworthy-friday-option-activity-byrn-mara-asts">Noteworthy Friday Option Activity: BYRN, MARA, ASTS</a></li>
+<li>Looking at options trading activity among components of the Russell 3000 index, there is noteworthy activity today in Byrna Technologies Inc (Symbol: BYRN), …</li>
+<li><a href="https://www.msn.com/en-in/money/markets/why-did-stla-mat-byrn-stocks-tumble-to-52-week-lows-today/ar-AA27BZfD?ocid=BingNewsVerp">Why did STLA, MAT, BYRN stocks tumble to 52-week lows today?</a></li>
+<li>Stellantis, Mattel, and Byrna Technologies tumbled to fresh lows on Thursday amid regional weaknesses, poor outlook, and Wall Street caution.</li>
+<li><a href="https://www.nasdaq.com/articles/byrna-technologies-byrn-great-choice-trend-investors-heres-why-1">Byrna Technologies (BYRN) Is a Great Choice for 'Trend' Investors, Here's Why</a></li>
+<li>When it comes to short-term investing or trading, they say "the trend is your friend." And there's no denying that this is the most profitable strategy. But …</li>
+<li><a href="https://ir.byrna.com/financial-information/financial-results">Financial Results :: Byrna Technologies Inc. (BYRN)</a></li>
+<li>Financial Info. Financial Results · Income Statement · Balance Sheet · Cash Flow. 2026. Q2 2026. Quarter Ended May 31, 2026. Earnings Release.</li>
+<li><a href="https://ir.byrna.com/">Investor Relations :: Byrna Technologies Inc. (BYRN)</a></li>
+<li>Byrna Technologies Inc. (NASDAQ: BYRN) is a technology company specializing in the areas of Personal Security Devices, Military, Law Enforcement, ...</li>
+<li><a href="https://finance.yahoo.com/quote/BYRN/">Byrna Technologies Inc. (BYRN) - Yahoo Finance</a></li>
+<li>7 hours ago ... Byrna Technologies Inc., a less-lethal self-defense technology company, develops, manufactures, and sells less-lethal personal security ...</li>
+<li><a href="https://quartr.com/companies/byrna-technologies-inc_10097">Byrna Technologies (BYRN) investor relations material - Quartr</a></li>
+<li>Complete event summary combining all related documents: earnings call transcript, report, and slide presentation. Logotype for Byrna Technologies Inc. Q2 202…</li>
+</ul>
+<h2 id="put-opportunities-heuristic-s2">Put opportunities (heuristic) [S2]</h2>
+<ul>
+<li>Expiration: 2026-09-18 (DTE 56)</li>
+<li>Candidates: 0</li>
+<li>ATM IV (est.): 146.1%</li>
+<li>IV rank: — (1 local samples)</li>
+<li>HV rank (20d realized): 100.0%</li>
+</ul>
+<p><em>Note: Delta band approximated via % OTM when greeks are unavailable; IV rank needs ~20+ local daily IV samples (have 1); run the options screen over time to build history.; HV rank is realized-vol rank (20d HV vs ~1y); useful when IV history is thin.</em></p>
+<h2 id="research-loop-think-act_3">Research loop (think → act)</h2>
+<ol>
+<li><em>heuristic</em> — Coverage looks adequate for this pass; stopping iterative loop.</li>
+</ol>
+<h2 id="sources_3">Sources</h2>
+<ul>
+<li><strong>[S1]</strong> BYRN fundamentals (yfinance)</li>
+<li>Byrna Technologies, Inc.: price=3.7099, rev=118120000.0, fcf=-9201000.0, shares=22693356.0, rev_cagr=0.3497464711860472, ROIC=0.2177063410328086, FCF yield=-0.10928841022600287</li>
+<li><strong>[S2]</strong> BYRN put screen (yfinance_options)</li>
+<li>Expiration 2026-09-18 (DTE 56): 0 candidates; IV=1.4609401953124999, IV rank=None, HV rank=1.0. Delta band approximated via % OTM when greeks are unavailable; IV rank needs ~20+…</li>
+<li><strong>[S3]</strong> Byron Nelson (web) — https://en.wikipedia.org/wiki/Byron_Nelson</li>
+<li>John Byron Nelson Jr. (February 4, 1912 – September 26, 2006) was an American professional golfer between 1935 and 1946, widely considered one of the greatest golfers of all tim…</li>
+<li><strong>[S4]</strong> BYRN News Today | Why did Byrna Technologies stock go up ... (web) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/news/</li>
+<li>Read today's BYRN news from trusted media outlets at MarketBeat.</li>
+<li><strong>[S5]</strong> Byrna Technologies Inc. (BYRN) Latest Stock News &amp; Headlines ... (web) — https://finance.yahoo.com/quote/BYRN/news/?fr=sycsrp_catchall</li>
+<li>Get the latest Byrna Technologies Inc. (BYRN) stock news and headlines to help you in your trading and investing decisions.</li>
+<li><strong>[S6]</strong> Press Releases :: Byrna Technologies Inc. (BYRN) (web) — https://ir.byrna.com/news-events/press-releases</li>
+<li>Jun 18, 2026 · Byrna Technologies Realigns Sales and Marketing Function to Strengthen Brand Messaging and Accelerate Retail Expansion; Appoints HLK as Agency of Record</li>
+<li><strong>[S7]</strong> Byrna Technologies Inc. (BYRN) Reports Q2 Loss, Lags Revenue Estimates (web) — https://www.msn.com/en-us/money/topstocks/byrna-technologies-inc-byrn-reports-q2-loss-lags-revenue-estimates/ar-AA27zswG?ocid=BingNewsVerp</li>
+<li>Byrna Technologies Inc. (BYRN) came out with a quarterly loss of $0.44 per share versus the Zacks Consensus Estimate of a ...</li>
+<li><strong>[S8]</strong> Noteworthy Friday Option Activity: BYRN, MARA, ASTS (web) — https://www.nasdaq.com/articles/noteworthy-friday-option-activity-byrn-mara-asts</li>
+<li>Looking at options trading activity among components of the Russell 3000 index, there is noteworthy activity today in Byrna Technologies Inc (Symbol: BYRN), where a total volume…</li>
+<li><strong>[S9]</strong> Why did STLA, MAT, BYRN stocks tumble to 52-week lows today? (web) — https://www.msn.com/en-in/money/markets/why-did-stla-mat-byrn-stocks-tumble-to-52-week-lows-today/ar-AA27BZfD?ocid=BingNewsVerp</li>
+<li>Stellantis, Mattel, and Byrna Technologies tumbled to fresh lows on Thursday amid regional weaknesses, poor outlook, and Wall Street caution.</li>
+<li><strong>[S10]</strong> Byrna Technologies (BYRN) Is a Great Choice for 'Trend' Investors, Here's Why (web) — https://www.nasdaq.com/articles/byrna-technologies-byrn-great-choice-trend-investors-heres-why-1</li>
+<li>When it comes to short-term investing or trading, they say "the trend is your friend." And there's no denying that this is the most profitable strategy. But making sure of the s…</li>
+<li><strong>[S11]</strong> BYRN News Today | Why did Byrna Technologies stock go up today? (web_page) — https://www.marketbeat.com/stocks/NASDAQ/BYRN/news/</li>
+<li>BYRN News Today | Why did Byrna Technologies stock go up today? Skip to main content → BlackRock is hoarding it. JPMorgan is hoarding it. Do you own it? (From Awesomely) (Ad) Fr…</li>
+</ul>
+<h2 id="self-critique_3">Self-critique</h2>
+<p><em>Automated review (heuristic).</em></p>
+<h3 id="strengths_3">Strengths</h3>
+<ul>
+<li>Combines local fundamentals, optional DCF scenarios, and cited sources where available.</li>
+<li>Keeps a non-advisory framing for local research drafts.</li>
+</ul>
+<h3 id="issues-gaps_3">Issues &amp; gaps</h3>
+<ul>
+<li>Company FCF is negative; ensure the report clearly flags normalized-margin DCF assumptions.</li>
+</ul>
+<h3 id="caution-for-readers_3">Caution for readers</h3>
+<ul>
+<li>Treat scenario prices as sensitivity output, not a forecast.</li>
+<li>Re-check primary filings and fresh market data before any decision.</li>
+</ul>
+<hr />
+<h1 id="template-fast-quant-fast">Template: Fast quant (<code>fast</code>)</h1>
+<h1 id="byrn-planned-research-report_4">BYRN — Planned Research Report</h1>
+<blockquote>
+<p>Not investment advice. Local research draft only.</p>
+</blockquote>
+<p><strong>Goal:</strong> Quick fundamentals + DCF + put screen<br />
+<strong>Mode:</strong> fast<br />
+<strong>Template:</strong> fast<br />
+<strong>Planner:</strong> template</p>
+<h2 id="plan-executed_4">Plan executed</h2>
+<ul>
+<li><strong>Fundamentals &amp; ratios</strong> (<code>fundamentals</code>): get_fundamentals</li>
+<li>Revenue, FCF, shares, growth rates, ROIC, FCF yield, debt/equity. Focus: Quick fundamentals + DCF + put screen</li>
+<li><strong>DCF valuation (base / bull / bear)</strong> (<code>valuation</code>): run_dcf</li>
+<li>Intrinsic value from growth, FCF margin, and WACC assumptions</li>
+<li><strong>Put income screen</strong> (<code>options</code>): screen_puts</li>
+<li>~30–60 DTE OTM puts targeting ~10–15% annualized premium</li>
+</ul>
+<h2 id="fundamentals-s1_4">Fundamentals [S1]</h2>
+<ul>
+<li>Company: Byrna Technologies, Inc.</li>
+<li>Sector / industry: Industrials / Aerospace &amp; Defense</li>
+<li>Price: 3.7</li>
+<li>52-week range: $3.17 – $30.62</li>
+<li>Market cap: $83.97M</li>
+<li>Enterprise value: $68.09M</li>
+<li>Shares outstanding: 22.69M</li>
+<li>Beta: 1.786</li>
+<li>Book equity: $65.76M</li>
+<li>Revenue (latest): $118.12M</li>
+<li>EBITDA (latest): $13.95M</li>
+<li>Free cash flow (latest): -$9.20M</li>
+<li>Operating income: $11.84M</li>
+<li>Operating margin: 10.0%</li>
+<li>EV / EBITDA: 4.9x</li>
+<li>ROIC: 21.8%</li>
+<li>FCF yield: -11.0%</li>
+<li>Debt / Equity: 0.035676810073452254</li>
+<li>FCF / share: -$0.41</li>
+<li>Revenue / share: $5.21</li>
+</ul>
+<h3 id="capital-structure_2">Capital structure</h3>
+<ul>
+<li>Cash: $13.73M</li>
+<li>Short-term debt: $734.00K</li>
+<li>Long-term debt: $1.61M</li>
+<li>Total debt: $2.35M</li>
+<li>Net debt: -$11.38M</li>
+<li>Net debt / EBITDA: -0.8x</li>
+</ul>
+<h3 id="growth_2">Growth</h3>
+<ul>
+<li>Revenue CAGR: 35.0%</li>
+<li>FCF CAGR: —</li>
+<li>Latest revenue YoY: 37.7%</li>
+<li>Latest FCF YoY: -198.2%</li>
+</ul>
+<h3 id="market-expectations-yfinance-sparse_2">Market expectations (yfinance, sparse)</h3>
+<ul>
+<li>Mean target: $6.83</li>
+<li>Target range: $4.00 – $12.00</li>
+<li>Recommendation: buy</li>
+</ul>
+<p><em>Consensus revenue/EBITDA forecasts are often unavailable via free feeds; treat targets as point-in-time only.</em></p>
+<h3 id="historical-kpis-multi-year_2">Historical KPIs (multi-year)</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Year</th>
+<th style="text-align: right;">Revenue</th>
+<th style="text-align: right;">OCF</th>
+<th style="text-align: right;">Capex</th>
+<th style="text-align: right;">FCF</th>
+<th style="text-align: right;">EBITDA</th>
+<th style="text-align: right;">LT debt</th>
+<th style="text-align: right;">Cash</th>
+<th style="text-align: right;">Net debt</th>
+<th style="text-align: right;">Net income</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2025</td>
+<td style="text-align: right;">$118.12M</td>
+<td style="text-align: right;">-$1.57M</td>
+<td style="text-align: right;">$7.63M</td>
+<td style="text-align: right;">-$9.20M</td>
+<td style="text-align: right;">$13.95M</td>
+<td style="text-align: right;">$2.35M</td>
+<td style="text-align: right;">$13.73M</td>
+<td style="text-align: right;">-$11.38M</td>
+<td style="text-align: right;">$9.69M</td>
+</tr>
+<tr>
+<td>2024</td>
+<td style="text-align: right;">$85.76M</td>
+<td style="text-align: right;">$11.74M</td>
+<td style="text-align: right;">$2.37M</td>
+<td style="text-align: right;">$9.37M</td>
+<td style="text-align: right;">$8.16M</td>
+<td style="text-align: right;">$2.64M</td>
+<td style="text-align: right;">$16.83M</td>
+<td style="text-align: right;">-$14.19M</td>
+<td style="text-align: right;">$12.79M</td>
+</tr>
+<tr>
+<td>2023</td>
+<td style="text-align: right;">$42.64M</td>
+<td style="text-align: right;">$3.89M</td>
+<td style="text-align: right;">$903.00K</td>
+<td style="text-align: right;">$2.99M</td>
+<td style="text-align: right;">-$6.53M</td>
+<td style="text-align: right;">$1.90M</td>
+<td style="text-align: right;">$20.50M</td>
+<td style="text-align: right;">-$18.60M</td>
+<td style="text-align: right;">-$8.19M</td>
+</tr>
+<tr>
+<td>2022</td>
+<td style="text-align: right;">$48.04M</td>
+<td style="text-align: right;">-$13.83M</td>
+<td style="text-align: right;">$3.25M</td>
+<td style="text-align: right;">-$17.08M</td>
+<td style="text-align: right;">-$6.88M</td>
+<td style="text-align: right;">$2.55M</td>
+<td style="text-align: right;">$20.07M</td>
+<td style="text-align: right;">-$17.52M</td>
+<td style="text-align: right;">-$7.88M</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="charts_2">Charts</h2>
+<h3 id="revenue-fcf-history_2">Revenue &amp; FCF history</h3>
+<p><img alt="Revenue &amp; FCF history" src="../charts/BYRN_fast_revenue_fcf.png" /></p>
+<h3 id="dcf-scenario-prices_1">DCF scenario prices</h3>
+<p><img alt="DCF scenario prices" src="../charts/BYRN_fast_dcf_scenarios.png" /></p>
+<h3 id="base-case-fcf-path_1">Base-case FCF path</h3>
+<p><img alt="Base-case FCF path" src="../charts/BYRN_fast_base_fcf_path.png" /></p>
+<h2 id="dcf-valuation-base-bull-bear-s2_2">DCF valuation (base / bull / bear) [S2]</h2>
+<blockquote>
+<p>Simplified revenue-&gt;FCF DCF. Not investment advice; assumptions are editable heuristics.</p>
+</blockquote>
+<ul>
+<li>Spot price: $3.70</li>
+<li>Base revenue: $118.12M</li>
+<li>Shares: 22,693,356</li>
+<li>Net debt (Debt−Cash): -$11.38M</li>
+</ul>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Growth</th>
+<th>FCF margin</th>
+<th>WACC</th>
+<th>Term. g</th>
+<th>Equity value</th>
+<th>Share price</th>
+<th>Upside</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bear</td>
+<td>25.0%</td>
+<td>1.0%</td>
+<td>12.0%</td>
+<td>1.5%</td>
+<td>$39.46M</td>
+<td>$1.74</td>
+<td>-53.0%</td>
+</tr>
+<tr>
+<td>base</td>
+<td>35.0%</td>
+<td>3.0%</td>
+<td>10.0%</td>
+<td>2.5%</td>
+<td>$180.36M</td>
+<td>$7.95</td>
+<td>114.8%</td>
+</tr>
+<tr>
+<td>bull</td>
+<td>42.0%</td>
+<td>8.0%</td>
+<td>9.0%</td>
+<td>3.0%</td>
+<td>$732.01M</td>
+<td>$32.26</td>
+<td>771.8%</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="assumption-notes_1">Assumption notes</h3>
+<ul>
+<li>Base revenue growth seeded from historical rate (37.7%).</li>
+<li>Latest FCF margin was -7.8%; scenarios use normalized positive margins for a going-concern DCF.</li>
+</ul>
+<h3 id="base-case-projected-fcf_1">Base-case projected FCF</h3>
+<ul>
+<li>Year 1: revenue $159.46M, FCF $4.78M (PV $4.35M)</li>
+<li>Year 2: revenue $215.27M, FCF $6.46M (PV $5.34M)</li>
+<li>Year 3: revenue $290.62M, FCF $8.72M (PV $6.55M)</li>
+<li>Year 4: revenue $392.34M, FCF $11.77M (PV $8.04M)</li>
+<li>Year 5: revenue $529.65M, FCF $15.89M (PV $9.87M)</li>
+<li>Terminal value $217.16M (PV $134.84M)</li>
+</ul>
+<h2 id="put-opportunities-heuristic-s3_1">Put opportunities (heuristic) [S3]</h2>
+<ul>
+<li>Expiration: 2026-09-18 (DTE 56)</li>
+<li>Candidates: 0</li>
+<li>ATM IV (est.): 163.3%</li>
+<li>IV rank: — (1 local samples)</li>
+<li>HV rank (20d realized): 100.0%</li>
+</ul>
+<p><em>Note: Delta band approximated via % OTM when greeks are unavailable; IV rank needs ~20+ local daily IV samples (have 1); run the options screen over time to build history.; HV rank is realized-vol rank (20d HV vs ~1y); useful when IV history is thin.</em></p>
+<h2 id="research-loop-think-act_4">Research loop (think → act)</h2>
+<ol>
+<li><em>heuristic</em> — Coverage looks adequate for this pass; stopping iterative loop.</li>
+</ol>
+<h2 id="sources_4">Sources</h2>
+<ul>
+<li><strong>[S1]</strong> BYRN fundamentals (yfinance)</li>
+<li>Byrna Technologies, Inc.: price=3.7, rev=118120000.0, fcf=-9201000.0, shares=22693356.0, rev_cagr=0.3497464711860472, ROIC=0.2177063410328086, FCF yield=-0.10958083027898058</li>
+<li><strong>[S2]</strong> BYRN DCF valuation (dcf)</li>
+<li>Base share price=7.947753124041503, bull=32.256417371811665, bear=1.7389795505454393</li>
+<li><strong>[S3]</strong> BYRN put screen (yfinance_options)</li>
+<li>Expiration 2026-09-18 (DTE 56): 0 candidates; IV=1.6328143359374998, IV rank=None, HV rank=1.0. Delta band approximated via % OTM when greeks are unavailable; IV rank needs ~20+…</li>
+</ul>
+<h2 id="self-critique_4">Self-critique</h2>
+<p><em>Automated review (heuristic).</em></p>
+<h3 id="strengths_4">Strengths</h3>
+<ul>
+<li>Combines local fundamentals, optional DCF scenarios, and cited sources where available.</li>
+<li>Keeps a non-advisory framing for local research drafts.</li>
+</ul>
+<h3 id="issues-gaps_4">Issues &amp; gaps</h3>
+<ul>
+<li>No major structural issues flagged by heuristics.</li>
+</ul>
+<h3 id="caution-for-readers_4">Caution for readers</h3>
+<ul>
+<li>Treat scenario prices as sensitivity output, not a forecast.</li>
+<li>Re-check primary filings and fresh market data before any decision.</li>
+</ul>
+    </article>
+  </main>
+
+  <footer class="site-foot">
+    <p>Static viewer of synced research packs · Not investment advice</p>
+  </footer>
+</body>
+</html>
